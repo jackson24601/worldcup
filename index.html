@@ -298,24 +298,109 @@
       }
       .player {
         position: absolute;
-        width: 26px;
-        height: 26px;
-        margin: -13px 0 0 -13px;
-        border-radius: 50%;
-        border: 2px solid rgba(0, 0, 0, 0.45);
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+        width: 24px;
+        height: 40px;
+        margin: -36px 0 0 -12px;
         z-index: 2;
+        pointer-events: none;
       }
       .player--gk {
-        width: 28px;
-        height: 28px;
-        margin: -14px 0 0 -14px;
-        border-radius: 6px;
+        width: 26px;
+        height: 42px;
+        margin: -38px 0 0 -13px;
       }
       .player--controlled {
-        box-shadow: 0 0 0 3px #f0c93b, 0 2px 6px rgba(0, 0, 0, 0.35);
         z-index: 3;
+        filter: drop-shadow(0 0 3px #f0c93b) drop-shadow(0 0 6px #f0c93b);
       }
+      .player__head {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        width: 12px;
+        height: 12px;
+        margin-left: -6px;
+        border-radius: 50%;
+        background: #f0c4a0;
+        border: 1px solid rgba(0, 0, 0, 0.25);
+        z-index: 2;
+      }
+      .player__body {
+        position: absolute;
+        top: 11px;
+        left: 50%;
+        width: 16px;
+        height: 14px;
+        margin-left: -8px;
+        border-radius: 4px 4px 3px 3px;
+        background: var(--kit, #fff);
+        border: 1px solid var(--kit-trim, #222);
+        box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.12);
+      }
+      .player__arm {
+        position: absolute;
+        top: 12px;
+        width: 4px;
+        height: 11px;
+        border-radius: 2px;
+        background: #f0c4a0;
+        border: 1px solid rgba(0, 0, 0, 0.15);
+      }
+      .player__arm--left { left: 0; transform: rotate(12deg); }
+      .player__arm--right { right: 0; transform: rotate(-12deg); }
+      .player--gk .player__body {
+        border-radius: 3px;
+      }
+      .player__shorts {
+        position: absolute;
+        top: 24px;
+        left: 50%;
+        width: 14px;
+        height: 7px;
+        margin-left: -7px;
+        border-radius: 0 0 3px 3px;
+        background: var(--shorts, #1a1a1a);
+      }
+      .player__legs {
+        position: absolute;
+        top: 30px;
+        left: 50%;
+        width: 14px;
+        height: 10px;
+        margin-left: -7px;
+      }
+      .player__legs::before,
+      .player__legs::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        width: 4px;
+        height: 10px;
+        border-radius: 2px;
+        background: #f0c4a0;
+      }
+      .player__legs::before { left: 1px; }
+      .player__legs::after { right: 1px; }
+      .player__boots {
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        width: 16px;
+        height: 4px;
+        margin-left: -8px;
+      }
+      .player__boots::before,
+      .player__boots::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        width: 6px;
+        height: 4px;
+        border-radius: 1px 1px 2px 2px;
+        background: #111;
+      }
+      .player__boots::before { left: 0; }
+      .player__boots::after { right: 0; }
       .ball {
         position: absolute;
         width: 16px;
@@ -524,7 +609,8 @@
       const AI_SPEED = 0.00115;
       const BALL_FRICTION = 0.985;
       const POSSESSION_RADIUS = 0.035;
-      const CONTROL_RADIUS = 0.045;
+      const TACKLE_RADIUS = 0.042;
+      const KICKER_GRACE_MS = 220;
 
       const TEAMS = [
         { id: "england", name: "England", flagCode: "gb-eng", color: "#f5f5f5", stroke: "#c8102e" },
@@ -588,6 +674,8 @@
       let rafId = 0;
       let fireworksTimer = 0;
       let lastTs = 0;
+      let lastKickerId = null;
+      let lastKickAt = 0;
       let actors = [];
       let ball = { x: 0.5, y: 0.5, vx: 0, vy: 0 };
       const keys = {
@@ -725,13 +813,29 @@
         var el = document.createElement("div");
         el.className = "player" + (role === "gk" ? " player--gk" : "");
         el.dataset.id = id;
+        el.innerHTML =
+          '<span class="player__head"></span>' +
+          '<span class="player__arm player__arm--left"></span>' +
+          '<span class="player__body"></span>' +
+          '<span class="player__arm player__arm--right"></span>' +
+          '<span class="player__shorts"></span>' +
+          '<span class="player__legs"></span>' +
+          '<span class="player__boots"></span>';
+
+        var kit = team.color;
+        var trim = team.stroke;
+        var shorts = "#1a1a1a";
         if (role === "gk") {
-          el.style.background = side === "home" ? "#ff8c1a" : "#c44dff";
-          el.style.borderColor = "#111";
-        } else {
-          el.style.background = team.color;
-          el.style.borderColor = team.stroke;
+          kit = side === "home" ? "#ff8c1a" : "#c44dff";
+          trim = "#111111";
+          shorts = "#222222";
+        } else if (team.color.toLowerCase() === "#ffffff" || team.color.toLowerCase() === "#f5f5f5") {
+          shorts = "#1b2a6b";
         }
+
+        el.style.setProperty("--kit", kit);
+        el.style.setProperty("--kit-trim", trim);
+        el.style.setProperty("--shorts", shorts);
         playersLayer.appendChild(el);
         return { id: id, side: side, role: role, x: x, y: y, el: el, team: team };
       }
@@ -760,6 +864,8 @@
         ball.vx = 0;
         ball.vy = 0;
         shotByCpu = false;
+        lastKickerId = null;
+        lastKickAt = 0;
         var kicker = actors.find(function (p) {
           return p.side === kickoffSide && p.role === "field";
         });
@@ -827,21 +933,57 @@
         if (player.side === "home") shotByCpu = false;
       }
 
-      function releaseBall() {
+      function releaseBall(kickerId) {
         possession = null;
+        lastKickerId = kickerId || null;
+        lastKickAt = performance.now();
       }
 
-      function tryGainPossession() {
+      function resolveBallPlayerCollisions() {
         if (possession) return;
-        var speed = Math.abs(ball.vx) + Math.abs(ball.vy);
-        if (speed > 0.018) return;
-        var candidates = actors.slice().sort(function (a, b) {
-          return dist(a, ball) - dist(b, ball);
-        });
-        var near = candidates[0];
-        if (near && dist(near, ball) < POSSESSION_RADIUS) {
-          attachBallTo(near);
+        var now = performance.now();
+        var hits = actors
+          .filter(function (p) {
+            if (p.id === lastKickerId && now - lastKickAt < KICKER_GRACE_MS) return false;
+            return dist(p, ball) <= TACKLE_RADIUS;
+          })
+          .sort(function (a, b) {
+            return dist(a, ball) - dist(b, ball);
+          });
+
+        if (!hits.length) return false;
+
+        var stopper = hits[0];
+        ball.vx = 0;
+        ball.vy = 0;
+        ball.x = stopper.x;
+        ball.y = stopper.y;
+        attachBallTo(stopper);
+        var kicker = lastKickerId ? getActor(lastKickerId) : null;
+        if (kicker && stopper.side !== kicker.side) {
+          gameMessage.textContent = "Tackle!";
+          setTimeout(function () {
+            if (gameMessage.textContent === "Tackle!") gameMessage.textContent = "";
+          }, 650);
         }
+        return true;
+      }
+
+      function ballPathHitsPlayer(fromX, fromY, toX, toY, player) {
+        var now = performance.now();
+        if (player.id === lastKickerId && now - lastKickAt < KICKER_GRACE_MS) return false;
+        var abx = toX - fromX;
+        var aby = toY - fromY;
+        var apx = player.x - fromX;
+        var apy = player.y - fromY;
+        var abLenSq = abx * abx + aby * aby;
+        var t = abLenSq ? (apx * abx + apy * aby) / abLenSq : 0;
+        t = clamp(t, 0, 1);
+        var closestX = fromX + abx * t;
+        var closestY = fromY + aby * t;
+        var dx = player.x - closestX;
+        var dy = player.y - closestY;
+        return Math.sqrt(dx * dx + dy * dy) <= TACKLE_RADIUS;
       }
 
       function movePlayer(p, dx, dy, speed) {
@@ -892,7 +1034,7 @@
           }
         });
 
-        releaseBall();
+        releaseBall(player.id);
         if (best) {
           var pdx = best.x - player.x;
           var pdy = best.y - player.y;
@@ -970,8 +1112,39 @@
           }
           return;
         }
-        ball.x += ball.vx;
-        ball.y += ball.vy;
+
+        var fromX = ball.x;
+        var fromY = ball.y;
+        var toX = ball.x + ball.vx;
+        var toY = ball.y + ball.vy;
+
+        var blockers = actors
+          .filter(function (p) {
+            return ballPathHitsPlayer(fromX, fromY, toX, toY, p);
+          })
+          .sort(function (a, b) {
+            return dist(a, { x: fromX, y: fromY }) - dist(b, { x: fromX, y: fromY });
+          });
+
+        if (blockers.length) {
+          var stopper = blockers[0];
+          ball.vx = 0;
+          ball.vy = 0;
+          ball.x = stopper.x;
+          ball.y = stopper.y;
+          attachBallTo(stopper);
+          var kicker = lastKickerId ? getActor(lastKickerId) : null;
+          if (kicker && stopper.side !== kicker.side) {
+            gameMessage.textContent = "Tackle!";
+            setTimeout(function () {
+              if (gameMessage.textContent === "Tackle!") gameMessage.textContent = "";
+            }, 650);
+          }
+          return;
+        }
+
+        ball.x = toX;
+        ball.y = toY;
         ball.vx *= BALL_FRICTION;
         ball.vy *= BALL_FRICTION;
         if (ball.y < 0.04) {
@@ -1003,7 +1176,7 @@
         }
         if (Math.abs(ball.vx) < 0.00035) ball.vx = 0;
         if (Math.abs(ball.vy) < 0.00035) ball.vy = 0;
-        tryGainPossession();
+        resolveBallPlayerCollisions();
       }
 
       function scoreGoal(side) {
@@ -1268,7 +1441,23 @@
             opponent: opponentTeam && opponentTeam.name,
             overlayHidden: overlay.hidden,
             semifinalsVisible: !semifinalsBtn.hidden,
+            ball: { x: ball.x, y: ball.y, vx: ball.vx, vy: ball.vy },
           };
+        },
+        fireBallAt: function (side) {
+          var target = actors.find(function (p) {
+            return p.side === side && p.role === "field";
+          });
+          if (!target) return null;
+          possession = null;
+          lastKickerId = side === "home" ? "away-3" : "home-3";
+          lastKickAt = performance.now() - KICKER_GRACE_MS - 10;
+          var dir = side === "home" ? -1 : 1;
+          ball.x = target.x - dir * 0.08;
+          ball.y = target.y;
+          ball.vx = dir * 0.05;
+          ball.vy = 0;
+          return { target: target.id, from: { x: ball.x, y: ball.y } };
         },
       };
     </script>
