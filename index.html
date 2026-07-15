@@ -529,7 +529,7 @@
 
     <main id="game" class="screen game" hidden>
       <p id="game-message" class="game__message" aria-live="polite"></p>
-      <div id="field" class="field" tabindex="0" role="application" aria-label="Soccer match. Use arrow keys to move. Space to pass or shoot.">
+      <div id="field" class="field" tabindex="0" role="application" aria-label="Soccer match. Arrow keys move. Hold an arrow and press Space to pass that way. Space alone shoots.">
         <div class="field__midline" aria-hidden="true"></div>
         <div class="field__circle" aria-hidden="true"></div>
         <div class="field__goal field__goal--left" aria-hidden="true"></div>
@@ -1034,50 +1034,74 @@
         }
       }
 
-      function passOrShoot(player) {
-        if (!player || possession !== player.id) return;
+      function getAimDirection() {
+        var aimX = 0;
+        var aimY = 0;
+        if (keys.ArrowLeft) aimX -= 1;
+        if (keys.ArrowRight) aimX += 1;
+        if (keys.ArrowUp) aimY -= 1;
+        if (keys.ArrowDown) aimY += 1;
+        if (!aimX && !aimY) return null;
+        var len = Math.sqrt(aimX * aimX + aimY * aimY) || 1;
+        return { x: aimX / len, y: aimY / len };
+      }
+
+      function findTeammateInDirection(player, aim) {
         var teammates = teamActors(player.side).filter(function (p) {
           return p.id !== player.id && p.role !== "gk";
         });
-        var towardGoal = player.side === "home" ? 1 : -1;
         var best = null;
         var bestScore = -Infinity;
         teammates.forEach(function (mate) {
-          var ahead = (mate.x - player.x) * towardGoal;
-          var d = dist(player, mate);
-          if (d < 0.08 || d > 0.32) return;
-          if (ahead < -0.02) return;
-          var score = ahead * 2 - d;
+          var dx = mate.x - player.x;
+          var dy = mate.y - player.y;
+          var d = Math.sqrt(dx * dx + dy * dy) || 1;
+          if (d < 0.05 || d > 0.45) return;
+          var alignment = (dx / d) * aim.x + (dy / d) * aim.y;
+          // Must be roughly in the aimed direction (up/down/left/right/diagonal)
+          if (alignment < 0.45) return;
+          var score = alignment * 3 - d;
           if (score > bestScore) {
             bestScore = score;
             best = mate;
           }
         });
+        return best;
+      }
 
-        releaseBall(player.id);
-        if (best) {
-          var pdx = best.x - player.x;
-          var pdy = best.y - player.y;
-          var plen = Math.sqrt(pdx * pdx + pdy * pdy) || 1;
-          ball.vx = (pdx / plen) * PASS_SPEED;
-          ball.vy = (pdy / plen) * PASS_SPEED;
-          gameMessage.textContent = "Pass!";
-        } else {
-          var targetX = player.side === "home" ? 1.02 : -0.02;
-          var targetY = 0.5 + (Math.random() * 0.16 - 0.08);
-          var sdx = targetX - player.x;
-          var sdy = targetY - player.y;
-          var slen = Math.sqrt(sdx * sdx + sdy * sdy) || 1;
-          ball.vx = (sdx / slen) * SHOT_SPEED;
-          ball.vy = (sdy / slen) * SHOT_SPEED;
-          gameMessage.textContent = "Shot!";
-          if (player.side === "away") shotByCpu = true;
-        }
+      function kickBall(dx, dy, speed, label) {
+        var len = Math.sqrt(dx * dx + dy * dy) || 1;
+        ball.vx = (dx / len) * speed;
+        ball.vy = (dy / len) * speed;
+        gameMessage.textContent = label;
         setTimeout(function () {
-          if (gameMessage.textContent === "Pass!" || gameMessage.textContent === "Shot!") {
-            gameMessage.textContent = "";
-          }
+          if (gameMessage.textContent === label) gameMessage.textContent = "";
         }, 700);
+      }
+
+      function passOrShoot(player, useKeyboardAim) {
+        if (!player || possession !== player.id) return;
+
+        var aim = useKeyboardAim ? getAimDirection() : null;
+        releaseBall(player.id);
+
+        // Directional pass: aim with arrow keys, Space sends the ball that way
+        if (aim) {
+          var mate = findTeammateInDirection(player, aim);
+          if (mate) {
+            kickBall(mate.x - player.x, mate.y - player.y, PASS_SPEED, "Pass!");
+          } else {
+            // No teammate that way — still pass the ball in the aimed direction
+            kickBall(aim.x, aim.y, PASS_SPEED, "Pass!");
+          }
+          return;
+        }
+
+        // No aim direction: shoot toward goal
+        var targetX = player.side === "home" ? 1.02 : -0.02;
+        var targetY = 0.5 + (Math.random() * 0.16 - 0.08);
+        kickBall(targetX - player.x, targetY - player.y, SHOT_SPEED, "Shot!");
+        if (player.side === "away") shotByCpu = true;
       }
 
       function updateAi(dtScale) {
@@ -1086,7 +1110,7 @@
             var dx = -1;
             var dy = 0.5 - p.y;
             if (p.x < 0.28 && Math.abs(p.y - 0.5) < 0.18) {
-              if (Math.random() < 0.02 * dtScale) passOrShoot(p);
+              if (Math.random() < 0.02 * dtScale) passOrShoot(p, false);
             } else {
               movePlayer(p, dx, dy, AI_SPEED * dtScale);
               ball.x = p.x - 0.02;
@@ -1468,7 +1492,7 @@
           if (!keys[" "]) {
             keys[" "] = true;
             var controlled = getActor(controlledId);
-            if (controlled && possession === controlled.id) passOrShoot(controlled);
+            if (controlled && possession === controlled.id) passOrShoot(controlled, true);
           }
           return;
         }
@@ -1584,6 +1608,48 @@
         },
         kickSpeeds: function () {
           return { pass: PASS_SPEED, shot: SHOT_SPEED, challenge: CHALLENGE_RADIUS };
+        },
+        aimPass: function (dir) {
+          // dir: 'up' | 'down' | 'left' | 'right'
+          keys.ArrowUp = dir === "up";
+          keys.ArrowDown = dir === "down";
+          keys.ArrowLeft = dir === "left";
+          keys.ArrowRight = dir === "right";
+          var holder = actors.find(function (p) {
+            return p.side === "home" && p.role === "field";
+          });
+          if (!holder) return null;
+          // Place a teammate above the holder for up-pass tests
+          var mate = actors.find(function (p) {
+            return p.side === "home" && p.role === "field" && p.id !== holder.id;
+          });
+          holder.x = 0.4;
+          holder.y = 0.55;
+          if (mate && dir === "up") {
+            mate.x = 0.4;
+            mate.y = 0.25;
+          } else if (mate && dir === "down") {
+            mate.x = 0.4;
+            mate.y = 0.8;
+          } else if (mate && dir === "left") {
+            mate.x = 0.2;
+            mate.y = 0.55;
+          } else if (mate && dir === "right") {
+            mate.x = 0.62;
+            mate.y = 0.55;
+          }
+          attachBallTo(holder);
+          controlledId = holder.id;
+          placeActors();
+          passOrShoot(holder, true);
+          keys.ArrowUp = keys.ArrowDown = keys.ArrowLeft = keys.ArrowRight = false;
+          return {
+            possession: possession,
+            ball: { x: ball.x, y: ball.y, vx: ball.vx, vy: ball.vy },
+            message: gameMessage.textContent,
+            holder: holder.id,
+            mate: mate && mate.id,
+          };
         },
       };
     </script>
