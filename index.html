@@ -242,6 +242,42 @@
         color: #f0c93b;
         text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
       }
+      .goal-banner {
+        position: absolute;
+        inset: 0;
+        z-index: 9;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+        background: rgba(6, 20, 12, 0.55);
+        pointer-events: none;
+      }
+      .goal-banner[hidden] { display: none !important; }
+      .goal-banner__text {
+        margin: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: clamp(3.2rem, 12vw, 6.5rem);
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        color: #f0c93b;
+        text-shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
+        animation: goal-pop 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+      }
+      .goal-banner__team {
+        margin: 0;
+        font-family: system-ui, sans-serif;
+        font-size: clamp(1.2rem, 3.5vw, 1.8rem);
+        font-weight: 700;
+        color: #fff;
+        text-shadow: 0 3px 12px rgba(0, 0, 0, 0.5);
+        animation: goal-pop 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both;
+      }
+      @keyframes goal-pop {
+        from { opacity: 0; transform: scale(0.7); }
+        to { opacity: 1; transform: scale(1); }
+      }
       .field {
         position: relative;
         flex: 1;
@@ -522,7 +558,9 @@
         .matchup,
         .kickoff-btn,
         .semifinals-btn,
-        .firework {
+        .firework,
+        .goal-banner__text,
+        .goal-banner__team {
           animation: none;
         }
       }
@@ -576,6 +614,10 @@
         <div class="field__goal field__goal--right" aria-hidden="true"></div>
         <div id="players" aria-hidden="true"></div>
         <div id="ball" class="ball" aria-hidden="true"></div>
+        <div id="goal-banner" class="goal-banner" hidden>
+          <p class="goal-banner__text">GOAL!!!!</p>
+          <p id="goal-banner-team" class="goal-banner__team"></p>
+        </div>
         <div id="overlay" class="overlay" hidden>
           <div id="fireworks" class="fireworks" aria-hidden="true"></div>
           <h2 id="overlay-title" class="overlay__title"></h2>
@@ -648,6 +690,8 @@
       const field = document.getElementById("field");
       const playersLayer = document.getElementById("players");
       const ballEl = document.getElementById("ball");
+      const goalBanner = document.getElementById("goal-banner");
+      const goalBannerTeam = document.getElementById("goal-banner-team");
       const overlay = document.getElementById("overlay");
       const overlayTitle = document.getElementById("overlay-title");
       const overlayText = document.getElementById("overlay-text");
@@ -750,6 +794,7 @@
         selectedTeam = null;
         opponentTeam = null;
         overlay.hidden = true;
+        goalBanner.hidden = true;
       }
 
       function showTeamSelect() {
@@ -1103,6 +1148,42 @@
         });
       }
 
+      function pathGoalCross(fromX, fromY, toX, toY) {
+        var mouthTop = 0.32;
+        var mouthBottom = 0.68;
+        if (fromX < 0.98 && toX >= 0.98) {
+          var tr = (0.98 - fromX) / (toX - fromX || 1);
+          var yr = fromY + (toY - fromY) * tr;
+          if (tr >= 0 && tr <= 1 && yr > mouthTop && yr < mouthBottom) {
+            return { side: "home", t: tr, x: 0.98, y: yr };
+          }
+        }
+        if (fromX > 0.02 && toX <= 0.02) {
+          var tl = (fromX - 0.02) / (fromX - toX || 1);
+          var yl = fromY + (toY - fromY) * tl;
+          if (tl >= 0 && tl <= 1 && yl > mouthTop && yl < mouthBottom) {
+            return { side: "away", t: tl, x: 0.02, y: yl };
+          }
+        }
+        return null;
+      }
+
+      function pathPlayerHit(fromX, fromY, toX, toY) {
+        var now = performance.now();
+        var best = null;
+        actors.forEach(function (p) {
+          if (p.id === lastKickerId && now - lastKickAt < KICKER_GRACE_MS) return;
+          if (!ballPathHitsPlayer(fromX, fromY, toX, toY, p)) return;
+          var abx = toX - fromX;
+          var aby = toY - fromY;
+          var abLenSq = abx * abx + aby * aby;
+          var t = abLenSq ? ((p.x - fromX) * abx + (p.y - fromY) * aby) / abLenSq : 0;
+          t = clamp(t, 0, 1);
+          if (!best || t < best.t) best = { player: p, t: t };
+        });
+        return best;
+      }
+
       function updateBall() {
         if (possession) {
           var holder = getActor(possession);
@@ -1118,16 +1199,21 @@
         var toX = ball.x + ball.vx;
         var toY = ball.y + ball.vy;
 
-        var blockers = actors
-          .filter(function (p) {
-            return ballPathHitsPlayer(fromX, fromY, toX, toY, p);
-          })
-          .sort(function (a, b) {
-            return dist(a, { x: fromX, y: fromY }) - dist(b, { x: fromX, y: fromY });
-          });
+        var goalHit = pathGoalCross(fromX, fromY, toX, toY);
+        var playerHit = pathPlayerHit(fromX, fromY, toX, toY);
 
-        if (blockers.length) {
-          var stopper = blockers[0];
+        // Goal line wins if the ball reaches it before any player contact
+        if (goalHit && (!playerHit || goalHit.t <= playerHit.t)) {
+          ball.x = goalHit.x;
+          ball.y = goalHit.y;
+          ball.vx = 0;
+          ball.vy = 0;
+          scoreGoal(goalHit.side);
+          return;
+        }
+
+        if (playerHit) {
+          var stopper = playerHit.player;
           ball.vx = 0;
           ball.vy = 0;
           ball.x = stopper.x;
@@ -1156,12 +1242,13 @@
           ball.vy *= -0.7;
         }
 
+        // End-line bounce only outside the goal mouth
         var inGoalY = ball.y > 0.32 && ball.y < 0.68;
-        if (ball.x >= 0.985 && inGoalY) {
+        if (ball.x >= 0.98 && inGoalY) {
           scoreGoal("home");
           return;
         }
-        if (ball.x <= 0.015 && inGoalY) {
+        if (ball.x <= 0.02 && inGoalY) {
           scoreGoal("away");
           return;
         }
@@ -1182,24 +1269,39 @@
       function scoreGoal(side) {
         if (awaitingRestart || matchOver) return;
         awaitingRestart = true;
-        if (side === "home") {
-          playerGoals += 1;
-          gameMessage.textContent = "GOAL!!!! " + selectedTeam.name + "!";
-        } else {
-          opponentGoals += 1;
-          gameMessage.textContent = "GOAL!!!! " + opponentTeam.name + "!";
-        }
-        updateHud();
         ball.vx = 0;
         ball.vy = 0;
         possession = null;
         shotByCpu = false;
+
+        var scorersName;
+        if (side === "home") {
+          playerGoals += 1;
+          scorersName = selectedTeam.name;
+        } else {
+          opponentGoals += 1;
+          scorersName = opponentTeam.name;
+        }
+        updateHud();
+
+        goalBannerTeam.textContent = scorersName + " score!";
+        goalBanner.hidden = false;
+        gameMessage.textContent = "";
+
+        // Other team restarts from center
+        var restartSide = side === "home" ? "away" : "home";
         setTimeout(function () {
           if (matchOver) return;
+          goalBanner.hidden = true;
+          goalBannerTeam.textContent = "";
           awaitingRestart = false;
-          gameMessage.textContent = "";
-          resetPositions(side === "home" ? "away" : "home");
-        }, 1600);
+          resetPositions(restartSide);
+          gameMessage.textContent =
+            (restartSide === "home" ? selectedTeam.name : opponentTeam.name) + " kick off!";
+          setTimeout(function () {
+            if (gameMessage.textContent.indexOf("kick off") !== -1) gameMessage.textContent = "";
+          }, 1400);
+        }, 1800);
       }
 
       function pauseClock() {
@@ -1441,8 +1543,32 @@
             opponent: opponentTeam && opponentTeam.name,
             overlayHidden: overlay.hidden,
             semifinalsVisible: !semifinalsBtn.hidden,
+            goalBannerHidden: goalBanner.hidden,
+            awaitingRestart: awaitingRestart,
             ball: { x: ball.x, y: ball.y, vx: ball.vx, vy: ball.vy },
           };
+        },
+        shootAtGoal: function (side) {
+          // side = who scores ("home" or "away")
+          possession = null;
+          lastKickerId = side === "home" ? "home-3" : "away-3";
+          lastKickAt = performance.now() - KICKER_GRACE_MS - 10;
+          if (side === "home") {
+            ball.x = 0.9;
+            ball.y = 0.5;
+            ball.vx = 0.08;
+            ball.vy = 0;
+          } else {
+            ball.x = 0.1;
+            ball.y = 0.5;
+            ball.vx = -0.08;
+            ball.vy = 0;
+          }
+          // Move keepers away so the shot is clean
+          actors.forEach(function (p) {
+            if (p.role === "gk") p.y = 0.15;
+          });
+          placeActors();
         },
         fireBallAt: function (side) {
           var target = actors.find(function (p) {
