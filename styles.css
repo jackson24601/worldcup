@@ -1,0 +1,223 @@
+:root {
+  --pitch: #1a7a3c;
+  --pitch-dark: #0f4d26;
+  --line: rgba(255, 255, 255, 0.22);
+  --gold: #f0c93b;
+  --ink: #0d2818;
+  --white: #f7faf7;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  font-family: Georgia, 'Times New Roman', serif;
+  color: var(--white);
+  background: var(--pitch-dark);
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+.pitch {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.12) 0 50%, transparent 50% 100%),
+    repeating-linear-gradient(
+      90deg,
+      #178a40 0 56px,
+      #1a9345 56px 112px
+    );
+}
+
+.pitch::before {
+  content: '';
+  position: absolute;
+  inset: 8%;
+  border: 3px solid var(--line);
+  border-radius: 4px;
+}
+
+.pitch::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(28vw, 180px);
+  height: min(28vw, 180px);
+  transform: translate(-50%, -50%);
+  border: 3px solid var(--line);
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px transparent, inset 0 0 0 1px transparent;
+  background:
+    linear-gradient(var(--line), var(--line)) center / 3px 100% no-repeat;
+}
+
+.screen {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.screen[hidden] {
+  display: none;
+}
+
+.landing {
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+}
+
+.play-btn {
+  min-width: 11rem;
+  padding: 1rem 2.75rem;
+  border-radius: 999px;
+  background: var(--gold);
+  color: var(--ink);
+  font-size: clamp(2rem, 6vw, 2.75rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.play-btn:hover {
+  background: #ffd95a;
+  transform: scale(1.05);
+}
+
+.play-btn:active {
+  transform: scale(0.98);
+}
+
+.play-btn:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 4px;
+}
+
+.team-select {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: clamp(1.25rem, 4vw, 2.5rem);
+}
+
+.team-select__header {
+  text-align: center;
+}
+
+.back-btn {
+  display: inline-flex;
+  margin-bottom: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  font-family: system-ui, sans-serif;
+  font-size: 0.95rem;
+  color: rgba(247, 250, 247, 0.85);
+}
+
+.back-btn:hover {
+  color: #fff;
+}
+
+.team-select__title {
+  margin: 0;
+  font-size: clamp(1.6rem, 4vw, 2.2rem);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+.team-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+@media (min-width: 640px) {
+  .team-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.team-btn {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 1rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  font-family: system-ui, sans-serif;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.team-btn:hover {
+  transform: translateY(-2px);
+  border-color: var(--gold);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.team-btn:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.team-btn--selected {
+  border-color: var(--gold);
+  background: rgba(240, 201, 59, 0.22);
+}
+
+.team-btn__flag {
+  width: 72px;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 4px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+}
+
+.team-btn__name {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.team-select__choice {
+  margin: 0;
+  text-align: center;
+  font-family: system-ui, sans-serif;
+  font-size: 1.05rem;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.team-select__choice strong {
+  color: var(--gold);
+}
