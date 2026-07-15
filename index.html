@@ -612,7 +612,8 @@
     <script>
       const DEFAULT_HALF_LENGTH_MS = 5 * 60 * 1000;
       const PLAYER_SPEED = 0.0032;
-      const AI_SPEED = 0.00115;
+      const AI_SPEED = 0.00155;
+      const AI_SUPPORT_SPEED = 0.00125;
       const BALL_FRICTION = 0.978;
       const POSSESSION_RADIUS = 0.035;
       const TACKLE_RADIUS = 0.055;
@@ -1173,31 +1174,134 @@
         if (player.side === "away") shotByCpu = true;
       }
 
+      function aiForwardTeammates(player) {
+        return teamActors(player.side)
+          .filter(function (p) {
+            return p.id !== player.id && p.role === "field";
+          })
+          .sort(function (a, b) {
+            // Away attacks left (lower x is more advanced)
+            return player.side === "away" ? a.x - b.x : b.x - a.x;
+          });
+      }
+
+      function aiPassToTeammate(player, preferForward) {
+        if (!player || possession !== player.id) return false;
+        var mates = aiForwardTeammates(player);
+        if (!mates.length) return false;
+
+        var choice = null;
+        if (preferForward) {
+          choice = mates.find(function (m) {
+            var ahead = player.side === "away" ? m.x < player.x - 0.04 : m.x > player.x + 0.04;
+            var d = dist(player, m);
+            return ahead && d > 0.08 && d < 0.4;
+          });
+        }
+        if (!choice) {
+          mates.sort(function (a, b) {
+            return dist(player, a) - dist(player, b);
+          });
+          choice = mates[0];
+        }
+        if (!choice) return false;
+
+        releaseBall(player.id);
+        kickBall(choice.x - player.x, choice.y - player.y, PASS_SPEED, "Pass!");
+        return true;
+      }
+
+      function aiClearFromGoalie(gk) {
+        if (!gk || possession !== gk.id) return;
+        var mates = aiForwardTeammates(gk);
+        if (mates.length) {
+          // Prefer a field player in the middle third
+          var target =
+            mates.find(function (m) {
+              return m.x > 0.35 && m.x < 0.75;
+            }) || mates[0];
+          releaseBall(gk.id);
+          kickBall(target.x - gk.x, target.y - gk.y, PASS_SPEED * 1.05, "Clear!");
+          return;
+        }
+        releaseBall(gk.id);
+        kickBall(gk.side === "away" ? -1 : 1, Math.random() * 0.5 - 0.25, PASS_SPEED, "Clear!");
+      }
+
+      function aiAttackWithBall(p, dtScale) {
+        if (p.role === "gk") {
+          // Never let the keeper hold — distribute quickly
+          if (performance.now() - possessionSince > 160) {
+            aiClearFromGoalie(p);
+          }
+          return;
+        }
+
+        var goalX = p.side === "away" ? 0.02 : 0.98;
+        var toGoalX = goalX - p.x;
+        var toGoalY = 0.5 - p.y;
+        var distGoal = Math.abs(toGoalX);
+
+        // Shoot when near the box
+        if (distGoal < 0.3 && Math.abs(p.y - 0.5) < 0.24) {
+          if (Math.random() < 0.05 * dtScale) {
+            passOrShoot(p, false);
+            return;
+          }
+        }
+
+        // Pass ahead often to keep the attack moving
+        if (Math.random() < 0.018 * dtScale) {
+          if (aiPassToTeammate(p, true)) return;
+        }
+
+        // Dribble toward goal with a bit of lane drift
+        var weave = Math.sin(performance.now() / 280 + p.id.length) * 0.35;
+        movePlayer(p, toGoalX, toGoalY + weave, AI_SPEED * dtScale);
+        ball.x = p.x + (p.side === "home" ? 0.02 : -0.02);
+        ball.y = p.y;
+      }
+
       function updateAi(dtScale) {
+        var holder = possession ? getActor(possession) : null;
+        var awayHasBall = !!(holder && holder.side === "away");
+        var homeHasBall = !!(holder && holder.side === "home");
+
         teamActors("away").forEach(function (p) {
           if (possession === p.id) {
-            var dx = -1;
-            var dy = 0.5 - p.y;
-            if (p.x < 0.28 && Math.abs(p.y - 0.5) < 0.18) {
-              if (Math.random() < 0.02 * dtScale) passOrShoot(p, false);
-            } else {
-              movePlayer(p, dx, dy, AI_SPEED * dtScale);
-              ball.x = p.x - 0.02;
-              ball.y = p.y;
-            }
+            aiAttackWithBall(p, dtScale);
             return;
           }
+
           if (p.role === "gk") {
             var gy = clamp(ball.y, 0.3, 0.7);
-            movePlayer(p, 0, gy - p.y, AI_SPEED * 0.8 * dtScale);
+            movePlayer(p, 0, gy - p.y, AI_SPEED * 0.75 * dtScale);
             return;
           }
-          var chase = closestToBall("away", false);
-          if (chase && chase.id === p.id) {
-            movePlayer(p, ball.x - p.x, ball.y - p.y, AI_SPEED * dtScale);
+
+          if (awayHasBall) {
+            // Supporting runs into attack
+            var lane =
+              p.id.endsWith("1") ? 0.28 : p.id.endsWith("2") ? 0.72 : 0.5;
+            var supportX = clamp((holder ? holder.x : ball.x) - 0.14, 0.22, 0.82);
+            if (p.id.endsWith("3")) supportX = clamp((holder ? holder.x : ball.x) - 0.22, 0.18, 0.7);
+            movePlayer(p, supportX - p.x, lane - p.y, AI_SUPPORT_SPEED * dtScale);
+            return;
+          }
+
+          // Defend / press when the user has the ball (or it's loose)
+          var chaser = closestToBall("away", false);
+          if (chaser && chaser.id === p.id) {
+            movePlayer(p, ball.x - p.x, ball.y - p.y, AI_SPEED * 1.05 * dtScale);
+          } else if (homeHasBall && holder) {
+            // Cut toward the ball side and apply pressure
+            var pressX = clamp(holder.x + 0.08, 0.35, 0.9);
+            var pressY = clamp(holder.y + (p.id.endsWith("1") ? -0.12 : 0.12), 0.18, 0.82);
+            movePlayer(p, pressX - p.x, pressY - p.y, AI_SUPPORT_SPEED * dtScale);
           } else {
-            var homeX = p.id.endsWith("3") ? 0.62 : 0.76;
-            movePlayer(p, homeX - p.x, 0, AI_SPEED * 0.35 * dtScale);
+            var recoverX = clamp(ball.x + 0.1, 0.45, 0.88);
+            var recoverY = p.id.endsWith("1") ? 0.3 : p.id.endsWith("2") ? 0.7 : 0.5;
+            movePlayer(p, recoverX - p.x, recoverY - p.y, AI_SUPPORT_SPEED * 0.85 * dtScale);
           }
         });
 
@@ -1651,6 +1755,15 @@
           ball.vx = dir * 0.05;
           ball.vy = 0;
           return { target: target.id, from: { x: ball.x, y: ball.y } };
+        },
+        giveBallToAwayGk: function () {
+          var gk = actors.find(function (p) {
+            return p.side === "away" && p.role === "gk";
+          });
+          if (!gk) return null;
+          attachBallTo(gk);
+          possessionSince = performance.now();
+          return { possession: possession, role: gk.role };
         },
         forceChallenge: function () {
           var holder = possession ? getActor(possession) : null;
