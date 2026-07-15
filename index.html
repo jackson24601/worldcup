@@ -2,16 +2,167 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
     <title>World Cup</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <style>
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        min-height: 100%;
+      }
+      body {
+        min-height: 100vh;
+        font-family: Georgia, "Times New Roman", serif;
+        color: #f7faf7;
+        background: #0f4d26;
+      }
+      button {
+        font: inherit;
+        cursor: pointer;
+        border: none;
+      }
+      img {
+        display: block;
+        max-width: 100%;
+      }
+      .pitch {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        background:
+          linear-gradient(90deg, rgba(0, 0, 0, 0.12) 0 50%, transparent 50% 100%),
+          repeating-linear-gradient(90deg, #178a40 0 56px, #1a9345 56px 112px);
+      }
+      .pitch::before {
+        content: "";
+        position: absolute;
+        inset: 8%;
+        border: 3px solid rgba(255, 255, 255, 0.22);
+      }
+      .pitch::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: min(28vw, 180px);
+        height: min(28vw, 180px);
+        transform: translate(-50%, -50%);
+        border: 3px solid rgba(255, 255, 255, 0.22);
+        border-radius: 50%;
+        background: linear-gradient(rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.22)) center / 3px 100% no-repeat;
+      }
+      .screen {
+        position: relative;
+        z-index: 1;
+        min-height: 100vh;
+      }
+      .screen[hidden] { display: none !important; }
+      .landing {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+      }
+      .play-btn {
+        display: inline-block;
+        min-width: 11rem;
+        padding: 1rem 2.75rem;
+        border-radius: 999px;
+        background: #f0c93b;
+        color: #0d2818;
+        font-size: clamp(2rem, 6vw, 2.75rem);
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+      }
+      .play-btn:hover { background: #ffd95a; }
+      .team-select {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        max-width: 52rem;
+        margin: 0 auto;
+        padding: 1.5rem;
+      }
+      .team-select__header { text-align: center; }
+      .back-btn {
+        display: inline-flex;
+        margin-bottom: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        background: transparent;
+        color: #f7faf7;
+        font-family: system-ui, sans-serif;
+        font-size: 0.95rem;
+      }
+      .team-select__title {
+        margin: 0;
+        font-size: clamp(1.6rem, 4vw, 2.2rem);
+      }
+      .team-grid {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.85rem;
+      }
+      @media (min-width: 640px) {
+        .team-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      }
+      .team-btn {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.7rem;
+        padding: 1rem 0.75rem;
+        border-radius: 12px;
+        background: rgba(0, 0, 0, 0.28);
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        color: #f7faf7;
+        font-family: system-ui, sans-serif;
+      }
+      .team-btn:hover,
+      .team-btn--selected {
+        border-color: #f0c93b;
+      }
+      .team-btn--selected {
+        background: rgba(240, 201, 59, 0.22);
+      }
+      .team-btn__flag {
+        width: 72px;
+        aspect-ratio: 3 / 2;
+        object-fit: cover;
+        border-radius: 4px;
+      }
+      .team-btn__name {
+        font-size: 0.95rem;
+        font-weight: 600;
+      }
+      .team-select__choice {
+        margin: 0;
+        text-align: center;
+        font-family: system-ui, sans-serif;
+        font-size: 1.05rem;
+      }
+      .team-select__choice strong { color: #f0c93b; }
+    </style>
   </head>
-  <body>
+  <body style="margin:0;background:#0f4d26;min-height:100vh;">
     <div class="pitch" aria-hidden="true"></div>
 
     <main id="landing" class="screen landing">
-      <button type="button" id="play-btn" class="play-btn">Play!</button>
+      <button
+        type="button"
+        id="play-btn"
+        class="play-btn"
+        style="background:#f0c93b;color:#0d2818;padding:1rem 2.75rem;border-radius:999px;font-size:2.5rem;font-weight:700;"
+      >
+        Play!
+      </button>
     </main>
 
     <main id="team-select" class="screen team-select" hidden>
@@ -23,6 +174,77 @@
       <p id="choice" class="team-select__choice" hidden></p>
     </main>
 
-    <script src="./app.js"></script>
+    <script>
+      const TEAMS = [
+        { id: "england", name: "England", flagCode: "gb-eng" },
+        { id: "usa", name: "USA", flagCode: "us" },
+        { id: "france", name: "France", flagCode: "fr" },
+        { id: "mexico", name: "Mexico", flagCode: "mx" },
+        { id: "japan", name: "Japan", flagCode: "jp" },
+        { id: "australia", name: "Australia", flagCode: "au" },
+        { id: "brazil", name: "Brazil", flagCode: "br" },
+        { id: "argentina", name: "Argentina", flagCode: "ar" },
+      ];
+
+      const landing = document.getElementById("landing");
+      const teamSelect = document.getElementById("team-select");
+      const playBtn = document.getElementById("play-btn");
+      const backBtn = document.getElementById("back-btn");
+      const teamGrid = document.getElementById("team-grid");
+      const choice = document.getElementById("choice");
+
+      function flagUrl(flagCode) {
+        return "https://flagcdn.com/w160/" + flagCode + ".png";
+      }
+
+      function showLanding() {
+        landing.hidden = false;
+        teamSelect.hidden = true;
+        choice.hidden = true;
+        choice.textContent = "";
+        teamGrid.querySelectorAll(".team-btn").forEach(function (btn) {
+          btn.classList.remove("team-btn--selected");
+          btn.setAttribute("aria-pressed", "false");
+        });
+      }
+
+      function showTeamSelect() {
+        landing.hidden = true;
+        teamSelect.hidden = false;
+      }
+
+      teamGrid.innerHTML = TEAMS.map(function (team) {
+        return (
+          '<li><button type="button" class="team-btn" data-team-id="' +
+          team.id +
+          '" aria-pressed="false">' +
+          '<img class="team-btn__flag" src="' +
+          flagUrl(team.flagCode) +
+          '" alt="" width="80" height="53" loading="lazy" />' +
+          '<span class="team-btn__name">' +
+          team.name +
+          "</span></button></li>"
+        );
+      }).join("");
+
+      teamGrid.addEventListener("click", function (event) {
+        var button = event.target.closest(".team-btn");
+        if (!button) return;
+        var team = TEAMS.find(function (item) {
+          return item.id === button.dataset.teamId;
+        });
+        if (!team) return;
+        teamGrid.querySelectorAll(".team-btn").forEach(function (btn) {
+          var isSelected = btn === button;
+          btn.classList.toggle("team-btn--selected", isSelected);
+          btn.setAttribute("aria-pressed", String(isSelected));
+        });
+        choice.hidden = false;
+        choice.innerHTML = "You will play as <strong>" + team.name + "</strong>";
+      });
+
+      playBtn.addEventListener("click", showTeamSelect);
+      backBtn.addEventListener("click", showLanding);
+    </script>
   </body>
 </html>

@@ -4,7 +4,9 @@ A simple World Cup soccer game.
 
 ## Play
 
-Open [the live site](https://jackson24601.github.io/worldcup/) or open `index.html` in a browser.
+Open **https://jackson24601.github.io/worldcup/**
+
+If the page looks blank, hard-refresh (Ctrl+Shift+R / Cmd+Shift+R) — an older cached build may still be stuck in the browser.
 
 ## Screens
 
