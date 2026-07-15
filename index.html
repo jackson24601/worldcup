@@ -54,6 +54,14 @@
         border-radius: 50%;
         background: linear-gradient(rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.22)) center / 3px 100% no-repeat;
       }
+      .crowd-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        background:
+          linear-gradient(180deg, rgba(8, 20, 40, 0.35), rgba(8, 20, 40, 0.55)),
+          url("./crowd.jpg") center / cover no-repeat;
+      }
       .screen {
         position: relative;
         z-index: 1;
@@ -142,17 +150,81 @@
         font-size: 0.95rem;
         font-weight: 600;
       }
-      .team-select__choice {
-        margin: 0;
+      .quarterfinals {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1.75rem;
+        padding: 1.5rem;
         text-align: center;
-        font-family: system-ui, sans-serif;
-        font-size: 1.05rem;
       }
-      .team-select__choice strong { color: #f0c93b; }
+      .quarterfinals__title {
+        margin: 0;
+        font-size: clamp(2.4rem, 8vw, 4.5rem);
+        letter-spacing: 0.04em;
+        text-shadow: 0 4px 18px rgba(0, 0, 0, 0.55);
+        animation: pop-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+      }
+      .matchup {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: clamp(0.85rem, 4vw, 2rem);
+        flex-wrap: wrap;
+        animation: pop-in 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
+      }
+      .matchup__side {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.65rem;
+        min-width: 7rem;
+      }
+      .matchup__flag {
+        width: clamp(88px, 18vw, 140px);
+        aspect-ratio: 3 / 2;
+        object-fit: cover;
+        border-radius: 6px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+        border: 3px solid rgba(255, 255, 255, 0.85);
+        background: #fff;
+      }
+      .matchup__name {
+        margin: 0;
+        font-family: system-ui, sans-serif;
+        font-size: clamp(1rem, 2.5vw, 1.25rem);
+        font-weight: 700;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
+      }
+      .matchup__vs {
+        margin: 0;
+        font-size: clamp(2rem, 7vw, 3.5rem);
+        font-weight: 700;
+        color: #f0c93b;
+        text-shadow: 0 3px 12px rgba(0, 0, 0, 0.55);
+      }
+      @keyframes pop-in {
+        from {
+          opacity: 0;
+          transform: translateY(16px) scale(0.96);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .quarterfinals__title,
+        .matchup {
+          animation: none;
+        }
+      }
     </style>
   </head>
   <body style="margin:0;background:#0f4d26;min-height:100vh;">
-    <div class="pitch" aria-hidden="true"></div>
+    <div id="pitch" class="pitch" aria-hidden="true"></div>
+    <div id="crowd" class="crowd-backdrop" aria-hidden="true" hidden></div>
 
     <main id="landing" class="screen landing">
       <button
@@ -171,7 +243,21 @@
         <h1 class="team-select__title">Pick your team</h1>
       </header>
       <ul id="team-grid" class="team-grid" role="list"></ul>
-      <p id="choice" class="team-select__choice" hidden></p>
+    </main>
+
+    <main id="quarterfinals" class="screen quarterfinals" hidden>
+      <h1 class="quarterfinals__title">Quarterfinals!!!!!</h1>
+      <div class="matchup" aria-live="polite">
+        <div class="matchup__side">
+          <img id="player-flag" class="matchup__flag" src="" alt="" width="140" height="93" />
+          <p id="player-name" class="matchup__name"></p>
+        </div>
+        <p class="matchup__vs">VS</p>
+        <div class="matchup__side">
+          <img id="opponent-flag" class="matchup__flag" src="" alt="" width="140" height="93" />
+          <p id="opponent-name" class="matchup__name"></p>
+        </div>
+      </div>
     </main>
 
     <script>
@@ -188,20 +274,44 @@
 
       const landing = document.getElementById("landing");
       const teamSelect = document.getElementById("team-select");
+      const quarterfinals = document.getElementById("quarterfinals");
+      const pitch = document.getElementById("pitch");
+      const crowd = document.getElementById("crowd");
       const playBtn = document.getElementById("play-btn");
       const backBtn = document.getElementById("back-btn");
       const teamGrid = document.getElementById("team-grid");
-      const choice = document.getElementById("choice");
+      const playerFlag = document.getElementById("player-flag");
+      const playerName = document.getElementById("player-name");
+      const opponentFlag = document.getElementById("opponent-flag");
+      const opponentName = document.getElementById("opponent-name");
+
+      let selectedTeam = null;
 
       function flagUrl(flagCode) {
         return "https://flagcdn.com/w160/" + flagCode + ".png";
       }
 
-      function showLanding() {
-        landing.hidden = false;
+      function hideAllScreens() {
+        landing.hidden = true;
         teamSelect.hidden = true;
-        choice.hidden = true;
-        choice.textContent = "";
+        quarterfinals.hidden = true;
+      }
+
+      function showPitch() {
+        pitch.hidden = false;
+        crowd.hidden = true;
+      }
+
+      function showCrowd() {
+        pitch.hidden = true;
+        crowd.hidden = false;
+      }
+
+      function showLanding() {
+        hideAllScreens();
+        showPitch();
+        landing.hidden = false;
+        selectedTeam = null;
         teamGrid.querySelectorAll(".team-btn").forEach(function (btn) {
           btn.classList.remove("team-btn--selected");
           btn.setAttribute("aria-pressed", "false");
@@ -209,8 +319,33 @@
       }
 
       function showTeamSelect() {
-        landing.hidden = true;
+        hideAllScreens();
+        showPitch();
         teamSelect.hidden = false;
+      }
+
+      function pickOpponent(playerTeam) {
+        var opponents = TEAMS.filter(function (team) {
+          return team.id !== playerTeam.id;
+        });
+        return opponents[Math.floor(Math.random() * opponents.length)];
+      }
+
+      function showQuarterfinals(playerTeam) {
+        var opponent = pickOpponent(playerTeam);
+        selectedTeam = playerTeam;
+
+        playerFlag.src = flagUrl(playerTeam.flagCode);
+        playerFlag.alt = playerTeam.name + " flag";
+        playerName.textContent = playerTeam.name;
+
+        opponentFlag.src = flagUrl(opponent.flagCode);
+        opponentFlag.alt = opponent.name + " flag";
+        opponentName.textContent = opponent.name;
+
+        hideAllScreens();
+        showCrowd();
+        quarterfinals.hidden = false;
       }
 
       teamGrid.innerHTML = TEAMS.map(function (team) {
@@ -234,13 +369,7 @@
           return item.id === button.dataset.teamId;
         });
         if (!team) return;
-        teamGrid.querySelectorAll(".team-btn").forEach(function (btn) {
-          var isSelected = btn === button;
-          btn.classList.toggle("team-btn--selected", isSelected);
-          btn.setAttribute("aria-pressed", String(isSelected));
-        });
-        choice.hidden = false;
-        choice.innerHTML = "You will play as <strong>" + team.name + "</strong>";
+        showQuarterfinals(team);
       });
 
       playBtn.addEventListener("click", showTeamSelect);
