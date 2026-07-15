@@ -14,6 +14,7 @@ If the page looks blank, hard-refresh (Ctrl+Shift+R / Cmd+Shift+R) — an older 
 2. **Team select** — choose England, USA, France, Mexico, Japan, Australia, Brazil, or Argentina
 3. **Quarterfinals** — random opponent matchup with flags, then **Kickoff!!!!**
 4. **Game** — 4v4 match (3 field players + goalie). Arrow keys move; hold an arrow and press Space to pass that way; Space alone shoots.
+5. **Semifinals** — after a quarterfinal win, press **Semifinals!!!!** to face a new opponent from the four remaining teams (never the team you just beat). Same match rules, but the AI is faster and more aggressive.
 
 ### Match rules
 
@@ -21,5 +22,5 @@ If the page looks blank, hard-refresh (Ctrl+Shift+R / Cmd+Shift+R) — an older 
 - Two halves of five minutes each
 - Score and clock sit in boxes at the bottom of the screen
 - Quarterfinal AI is slower than you, but attacks: keeper clears quickly, field players pass, press, and try to score
-- Win at full time to see fireworks and a **Semifinals!!!!** button
-
+- Win the quarterfinals to see fireworks and advance to the semifinals
+- Semifinal AI moves faster and presses harder — still beatable, but tougher than the quarters
