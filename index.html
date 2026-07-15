@@ -334,109 +334,31 @@
       }
       .player {
         position: absolute;
-        width: 24px;
-        height: 40px;
-        margin: -36px 0 0 -12px;
+        width: 44px;
+        height: 68px;
+        margin: -62px 0 0 -22px;
         z-index: 2;
         pointer-events: none;
+        transform-origin: 50% 100%;
+      }
+      .player--away {
+        transform: scaleX(-1);
       }
       .player--gk {
-        width: 26px;
-        height: 42px;
-        margin: -38px 0 0 -13px;
+        width: 46px;
+        height: 70px;
+        margin: -64px 0 0 -23px;
       }
       .player--controlled {
         z-index: 3;
-        filter: drop-shadow(0 0 3px #f0c93b) drop-shadow(0 0 6px #f0c93b);
+        filter: drop-shadow(0 0 4px #f0c93b) drop-shadow(0 0 8px rgba(240, 201, 59, 0.85));
       }
-      .player__head {
-        position: absolute;
-        top: 0;
-        left: 50%;
-        width: 12px;
-        height: 12px;
-        margin-left: -6px;
-        border-radius: 50%;
-        background: #f0c4a0;
-        border: 1px solid rgba(0, 0, 0, 0.25);
-        z-index: 2;
+      .player__svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
       }
-      .player__body {
-        position: absolute;
-        top: 11px;
-        left: 50%;
-        width: 16px;
-        height: 14px;
-        margin-left: -8px;
-        border-radius: 4px 4px 3px 3px;
-        background: var(--kit, #fff);
-        border: 1px solid var(--kit-trim, #222);
-        box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.12);
-      }
-      .player__arm {
-        position: absolute;
-        top: 12px;
-        width: 4px;
-        height: 11px;
-        border-radius: 2px;
-        background: #f0c4a0;
-        border: 1px solid rgba(0, 0, 0, 0.15);
-      }
-      .player__arm--left { left: 0; transform: rotate(12deg); }
-      .player__arm--right { right: 0; transform: rotate(-12deg); }
-      .player--gk .player__body {
-        border-radius: 3px;
-      }
-      .player__shorts {
-        position: absolute;
-        top: 24px;
-        left: 50%;
-        width: 14px;
-        height: 7px;
-        margin-left: -7px;
-        border-radius: 0 0 3px 3px;
-        background: var(--shorts, #1a1a1a);
-      }
-      .player__legs {
-        position: absolute;
-        top: 30px;
-        left: 50%;
-        width: 14px;
-        height: 10px;
-        margin-left: -7px;
-      }
-      .player__legs::before,
-      .player__legs::after {
-        content: "";
-        position: absolute;
-        top: 0;
-        width: 4px;
-        height: 10px;
-        border-radius: 2px;
-        background: #f0c4a0;
-      }
-      .player__legs::before { left: 1px; }
-      .player__legs::after { right: 1px; }
-      .player__boots {
-        position: absolute;
-        bottom: 0;
-        left: 50%;
-        width: 16px;
-        height: 4px;
-        margin-left: -8px;
-      }
-      .player__boots::before,
-      .player__boots::after {
-        content: "";
-        position: absolute;
-        bottom: 0;
-        width: 6px;
-        height: 4px;
-        border-radius: 1px 1px 2px 2px;
-        background: #111;
-      }
-      .player__boots::before { left: 0; }
-      .player__boots::after { right: 0; }
       .ball {
         position: absolute;
         width: 16px;
@@ -854,18 +776,41 @@
         });
       }
 
+      function playerSvg(kit, trim, shorts, isGk) {
+        var glove = isGk ? kit : "#f0c4a0";
+        return (
+          '<svg class="player__svg" viewBox="0 0 48 72" aria-hidden="true">' +
+          '<ellipse cx="24" cy="69" rx="12" ry="2.5" fill="rgba(0,0,0,0.28)"/>' +
+          '<rect x="14" y="46" width="6" height="16" rx="2" fill="#f0c4a0"/>' +
+          '<rect x="28" y="46" width="6" height="16" rx="2" fill="#f0c4a0"/>' +
+          '<rect x="13" y="38" width="22" height="10" rx="2" fill="' + shorts + '"/>' +
+          '<rect x="4" y="22" width="8" height="16" rx="3" transform="rotate(18 8 22)" fill="#f0c4a0"/>' +
+          '<circle cx="6" cy="40" r="3.2" fill="' + glove + '"/>' +
+          '<rect x="36" y="22" width="8" height="16" rx="3" transform="rotate(-18 40 22)" fill="#f0c4a0"/>' +
+          '<circle cx="42" cy="40" r="3.2" fill="' + glove + '"/>' +
+          '<rect x="12" y="18" width="24" height="22" rx="5" fill="' + kit + '" stroke="' + trim + '" stroke-width="1.5"/>' +
+          '<path d="M20 18l4 5 4-5" fill="none" stroke="' + trim + '" stroke-width="1.5"/>' +
+          '<circle cx="24" cy="10" r="9" fill="#f0c4a0" stroke="rgba(0,0,0,0.2)" stroke-width="1"/>' +
+          '<path d="M15 10c0-7 4.5-10 9-10s9 3 9 10c-2-4-5-5-9-5s-7 1-9 5z" fill="#3b2416"/>' +
+          '<circle cx="21" cy="10" r="1.2" fill="#222"/>' +
+          '<circle cx="27" cy="10" r="1.2" fill="#222"/>' +
+          '<path d="M21 13.5c1.2 1.4 4.8 1.4 6 0" fill="none" stroke="#b07a55" stroke-width="1.2" stroke-linecap="round"/>' +
+          '<rect x="12" y="60" width="10" height="5" rx="2" fill="#111"/>' +
+          '<rect x="26" y="60" width="10" height="5" rx="2" fill="#111"/>' +
+          (isGk
+            ? '<rect x="18" y="24" width="12" height="8" rx="2" fill="rgba(255,255,255,0.35)"/>'
+            : "") +
+          "</svg>"
+        );
+      }
+
       function makeActor(id, side, role, x, y, team) {
         var el = document.createElement("div");
-        el.className = "player" + (role === "gk" ? " player--gk" : "");
+        el.className =
+          "player" +
+          (role === "gk" ? " player--gk" : "") +
+          (side === "away" ? " player--away" : "");
         el.dataset.id = id;
-        el.innerHTML =
-          '<span class="player__head"></span>' +
-          '<span class="player__arm player__arm--left"></span>' +
-          '<span class="player__body"></span>' +
-          '<span class="player__arm player__arm--right"></span>' +
-          '<span class="player__shorts"></span>' +
-          '<span class="player__legs"></span>' +
-          '<span class="player__boots"></span>';
 
         var kit = team.color;
         var trim = team.stroke;
@@ -878,9 +823,7 @@
           shorts = "#1b2a6b";
         }
 
-        el.style.setProperty("--kit", kit);
-        el.style.setProperty("--kit-trim", trim);
-        el.style.setProperty("--shorts", shorts);
+        el.innerHTML = playerSvg(kit, trim, shorts, role === "gk");
         playersLayer.appendChild(el);
         return { id: id, side: side, role: role, x: x, y: y, el: el, team: team };
       }
