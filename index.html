@@ -204,6 +204,146 @@
         color: #f0c93b;
         text-shadow: 0 3px 12px rgba(0, 0, 0, 0.55);
       }
+      .kickoff-btn {
+        display: inline-block;
+        margin-top: 0.5rem;
+        padding: 0.9rem 2.4rem;
+        border-radius: 999px;
+        background: #f0c93b;
+        color: #0d2818;
+        font-size: clamp(1.5rem, 4.5vw, 2.1rem);
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+        animation: pop-in 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;
+      }
+      .kickoff-btn:hover { background: #ffd95a; }
+      .game {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        padding: 1rem;
+        gap: 0.85rem;
+      }
+      .scoreboard {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+        font-family: system-ui, sans-serif;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+      }
+      .scoreboard__side {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        min-width: 7rem;
+      }
+      .scoreboard__side--right {
+        flex-direction: row-reverse;
+      }
+      .scoreboard__flag {
+        width: 42px;
+        aspect-ratio: 3 / 2;
+        object-fit: cover;
+        border-radius: 3px;
+        border: 2px solid rgba(255, 255, 255, 0.85);
+        background: #fff;
+      }
+      .scoreboard__name {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+      }
+      .scoreboard__score {
+        margin: 0;
+        font-size: clamp(1.8rem, 5vw, 2.6rem);
+        font-weight: 700;
+        letter-spacing: 0.08em;
+      }
+      .game__hint {
+        margin: 0;
+        text-align: center;
+        font-family: system-ui, sans-serif;
+        font-size: 0.95rem;
+        color: rgba(247, 250, 247, 0.9);
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+      }
+      .field {
+        position: relative;
+        flex: 1;
+        min-height: 320px;
+        border: 3px solid rgba(255, 255, 255, 0.55);
+        border-radius: 10px;
+        overflow: hidden;
+        background:
+          linear-gradient(90deg, rgba(0, 0, 0, 0.08) 0 50%, transparent 50% 100%),
+          repeating-linear-gradient(90deg, #178a40 0 48px, #1a9345 48px 96px);
+        cursor: crosshair;
+        touch-action: none;
+      }
+      .field__midline {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 50%;
+        width: 3px;
+        background: rgba(255, 255, 255, 0.45);
+        transform: translateX(-50%);
+      }
+      .field__circle {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: min(22vw, 120px);
+        height: min(22vw, 120px);
+        border: 3px solid rgba(255, 255, 255, 0.45);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+      }
+      .field__goal {
+        position: absolute;
+        top: 50%;
+        width: 14px;
+        height: 34%;
+        min-height: 90px;
+        transform: translateY(-50%);
+        background: rgba(255, 255, 255, 0.2);
+        border: 3px solid rgba(255, 255, 255, 0.7);
+      }
+      .field__goal--left {
+        left: 0;
+        border-left: none;
+        border-radius: 0 8px 8px 0;
+      }
+      .field__goal--right {
+        right: 0;
+        border-right: none;
+        border-radius: 8px 0 0 8px;
+      }
+      .ball {
+        position: absolute;
+        width: 28px;
+        height: 28px;
+        margin: -14px 0 0 -14px;
+        border-radius: 50%;
+        background:
+          radial-gradient(circle at 30% 30%, #fff 0 35%, #f2f2f2 36% 100%);
+        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+        border: 2px solid #222;
+        z-index: 2;
+      }
+      .game__message {
+        margin: 0;
+        min-height: 1.4em;
+        text-align: center;
+        font-family: system-ui, sans-serif;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #f0c93b;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+      }
       @keyframes pop-in {
         from {
           opacity: 0;
@@ -216,7 +356,8 @@
       }
       @media (prefers-reduced-motion: reduce) {
         .quarterfinals__title,
-        .matchup {
+        .matchup,
+        .kickoff-btn {
           animation: none;
         }
       }
@@ -258,6 +399,30 @@
           <p id="opponent-name" class="matchup__name"></p>
         </div>
       </div>
+      <button type="button" id="kickoff-btn" class="kickoff-btn">Kickoff!!!!</button>
+    </main>
+
+    <main id="game" class="screen game" hidden>
+      <div class="scoreboard" aria-live="polite">
+        <div class="scoreboard__side">
+          <img id="game-player-flag" class="scoreboard__flag" src="" alt="" width="42" height="28" />
+          <p id="game-player-name" class="scoreboard__name"></p>
+        </div>
+        <p id="game-score" class="scoreboard__score">0 - 0</p>
+        <div class="scoreboard__side scoreboard__side--right">
+          <img id="game-opponent-flag" class="scoreboard__flag" src="" alt="" width="42" height="28" />
+          <p id="game-opponent-name" class="scoreboard__name"></p>
+        </div>
+      </div>
+      <p class="game__hint">Click or tap the pitch to kick the ball toward the opponent goal!</p>
+      <div id="field" class="field" role="application" aria-label="Soccer field">
+        <div class="field__midline" aria-hidden="true"></div>
+        <div class="field__circle" aria-hidden="true"></div>
+        <div class="field__goal field__goal--left" aria-hidden="true"></div>
+        <div class="field__goal field__goal--right" aria-hidden="true"></div>
+        <div id="ball" class="ball" aria-hidden="true"></div>
+      </div>
+      <p id="game-message" class="game__message"></p>
     </main>
 
     <script>
@@ -275,17 +440,36 @@
       const landing = document.getElementById("landing");
       const teamSelect = document.getElementById("team-select");
       const quarterfinals = document.getElementById("quarterfinals");
+      const game = document.getElementById("game");
       const pitch = document.getElementById("pitch");
       const crowd = document.getElementById("crowd");
       const playBtn = document.getElementById("play-btn");
       const backBtn = document.getElementById("back-btn");
+      const kickoffBtn = document.getElementById("kickoff-btn");
       const teamGrid = document.getElementById("team-grid");
       const playerFlag = document.getElementById("player-flag");
       const playerName = document.getElementById("player-name");
       const opponentFlag = document.getElementById("opponent-flag");
       const opponentName = document.getElementById("opponent-name");
+      const gamePlayerFlag = document.getElementById("game-player-flag");
+      const gamePlayerName = document.getElementById("game-player-name");
+      const gameOpponentFlag = document.getElementById("game-opponent-flag");
+      const gameOpponentName = document.getElementById("game-opponent-name");
+      const gameScore = document.getElementById("game-score");
+      const gameMessage = document.getElementById("game-message");
+      const field = document.getElementById("field");
+      const ball = document.getElementById("ball");
 
       let selectedTeam = null;
+      let opponentTeam = null;
+      let playerGoals = 0;
+      let opponentGoals = 0;
+      let ballX = 0.5;
+      let ballY = 0.5;
+      let ballVx = 0;
+      let ballVy = 0;
+      let gameActive = false;
+      let rafId = 0;
 
       function flagUrl(flagCode) {
         return "https://flagcdn.com/w160/" + flagCode + ".png";
@@ -295,6 +479,7 @@
         landing.hidden = true;
         teamSelect.hidden = true;
         quarterfinals.hidden = true;
+        game.hidden = true;
       }
 
       function showPitch() {
@@ -308,10 +493,12 @@
       }
 
       function showLanding() {
+        stopGameLoop();
         hideAllScreens();
         showPitch();
         landing.hidden = false;
         selectedTeam = null;
+        opponentTeam = null;
         teamGrid.querySelectorAll(".team-btn").forEach(function (btn) {
           btn.classList.remove("team-btn--selected");
           btn.setAttribute("aria-pressed", "false");
@@ -319,6 +506,7 @@
       }
 
       function showTeamSelect() {
+        stopGameLoop();
         hideAllScreens();
         showPitch();
         teamSelect.hidden = false;
@@ -332,20 +520,140 @@
       }
 
       function showQuarterfinals(playerTeam) {
-        var opponent = pickOpponent(playerTeam);
+        opponentTeam = pickOpponent(playerTeam);
         selectedTeam = playerTeam;
 
         playerFlag.src = flagUrl(playerTeam.flagCode);
         playerFlag.alt = playerTeam.name + " flag";
         playerName.textContent = playerTeam.name;
 
-        opponentFlag.src = flagUrl(opponent.flagCode);
-        opponentFlag.alt = opponent.name + " flag";
-        opponentName.textContent = opponent.name;
+        opponentFlag.src = flagUrl(opponentTeam.flagCode);
+        opponentFlag.alt = opponentTeam.name + " flag";
+        opponentName.textContent = opponentTeam.name;
 
         hideAllScreens();
         showCrowd();
         quarterfinals.hidden = false;
+      }
+
+      function placeBall() {
+        ball.style.left = ballX * 100 + "%";
+        ball.style.top = ballY * 100 + "%";
+      }
+
+      function resetBall(center) {
+        ballX = center ? 0.5 : 0.5;
+        ballY = 0.5;
+        ballVx = 0;
+        ballVy = 0;
+        placeBall();
+      }
+
+      function updateScoreboard() {
+        gameScore.textContent = playerGoals + " - " + opponentGoals;
+      }
+
+      function stopGameLoop() {
+        gameActive = false;
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+          rafId = 0;
+        }
+      }
+
+      function startGameLoop() {
+        stopGameLoop();
+        gameActive = true;
+        function tick() {
+          if (!gameActive) return;
+          ballX += ballVx;
+          ballY += ballVy;
+          ballVx *= 0.985;
+          ballVy *= 0.985;
+
+          if (ballY < 0.04) {
+            ballY = 0.04;
+            ballVy *= -0.7;
+          }
+          if (ballY > 0.96) {
+            ballY = 0.96;
+            ballVy *= -0.7;
+          }
+
+          var inGoalY = ballY > 0.33 && ballY < 0.67;
+          if (ballX >= 0.97 && inGoalY && Math.abs(ballVx) + Math.abs(ballVy) > 0.002) {
+            playerGoals += 1;
+            updateScoreboard();
+            gameMessage.textContent = "GOAL!!!! " + selectedTeam.name + " scores!";
+            resetBall(true);
+            setTimeout(function () {
+              if (gameActive) gameMessage.textContent = "";
+            }, 1400);
+          } else if (ballX <= 0.03 && inGoalY && Math.abs(ballVx) + Math.abs(ballVy) > 0.002) {
+            opponentGoals += 1;
+            updateScoreboard();
+            gameMessage.textContent = "GOAL!!!! " + opponentTeam.name + " scores!";
+            resetBall(true);
+            setTimeout(function () {
+              if (gameActive) gameMessage.textContent = "";
+            }, 1400);
+          } else {
+            if (ballX < 0.03) {
+              ballX = 0.03;
+              ballVx *= -0.7;
+            }
+            if (ballX > 0.97) {
+              ballX = 0.97;
+              ballVx *= -0.7;
+            }
+          }
+
+          if (Math.abs(ballVx) < 0.0004) ballVx = 0;
+          if (Math.abs(ballVy) < 0.0004) ballVy = 0;
+
+          placeBall();
+          rafId = requestAnimationFrame(tick);
+        }
+        rafId = requestAnimationFrame(tick);
+      }
+
+      function kickToward(clientX, clientY) {
+        if (!gameActive) return;
+        var rect = field.getBoundingClientRect();
+        var targetX = (clientX - rect.left) / rect.width;
+        var targetY = (clientY - rect.top) / rect.height;
+        var dx = targetX - ballX;
+        var dy = targetY - ballY;
+        var dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        var power = Math.min(0.045, 0.018 + dist * 0.03);
+        ballVx = (dx / dist) * power;
+        ballVy = (dy / dist) * power;
+      }
+
+      function showGame() {
+        if (!selectedTeam || !opponentTeam) return;
+
+        playerGoals = 0;
+        opponentGoals = 0;
+        updateScoreboard();
+        gameMessage.textContent = "Kickoff!!!!";
+
+        gamePlayerFlag.src = flagUrl(selectedTeam.flagCode);
+        gamePlayerFlag.alt = selectedTeam.name + " flag";
+        gamePlayerName.textContent = selectedTeam.name;
+
+        gameOpponentFlag.src = flagUrl(opponentTeam.flagCode);
+        gameOpponentFlag.alt = opponentTeam.name + " flag";
+        gameOpponentName.textContent = opponentTeam.name;
+
+        hideAllScreens();
+        showPitch();
+        game.hidden = false;
+        resetBall(true);
+        startGameLoop();
+        setTimeout(function () {
+          if (gameActive) gameMessage.textContent = "";
+        }, 1200);
       }
 
       teamGrid.innerHTML = TEAMS.map(function (team) {
@@ -372,8 +680,13 @@
         showQuarterfinals(team);
       });
 
+      field.addEventListener("pointerdown", function (event) {
+        kickToward(event.clientX, event.clientY);
+      });
+
       playBtn.addEventListener("click", showTeamSelect);
       backBtn.addEventListener("click", showLanding);
+      kickoffBtn.addEventListener("click", showGame);
     </script>
   </body>
 </html>
