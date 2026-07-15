@@ -1,0 +1,55 @@
+:root {
+  --pitch-deep: #0b3d24;
+  --pitch-mid: #1a6b3c;
+  --pitch-bright: #2f9e56;
+  --turf-line: rgba(244, 247, 242, 0.18);
+  --gold: #e8c547;
+  --gold-hot: #f5d76e;
+  --cream: #f4f7f2;
+  --ink: #102418;
+  --ink-soft: rgba(16, 36, 24, 0.72);
+  --glass: rgba(244, 247, 242, 0.12);
+  --glass-strong: rgba(244, 247, 242, 0.22);
+  --shadow: rgba(8, 28, 16, 0.35);
+
+  font-family: 'Outfit', sans-serif;
+  line-height: 1.4;
+  font-weight: 400;
+  color: var(--cream);
+  background-color: var(--pitch-deep);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
