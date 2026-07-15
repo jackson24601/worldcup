@@ -12,3 +12,4 @@ If the page looks blank, hard-refresh (Ctrl+Shift+R / Cmd+Shift+R) — an older 
 
 1. **Landing** — soccer pitch background with a **Play!** button
 2. **Team select** — choose England, USA, France, Mexico, Japan, Australia, Brazil, or Argentina
+3. **Quarterfinals** — random opponent matchup with flags and a cheering crowd background
