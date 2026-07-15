@@ -571,10 +571,14 @@
       const DEFAULT_HALF_LENGTH_MS = 5 * 60 * 1000;
       const PLAYER_SPEED = 0.0032;
       const AI_SPEED = 0.00115;
-      const BALL_FRICTION = 0.985;
+      const BALL_FRICTION = 0.978;
       const POSSESSION_RADIUS = 0.035;
-      const TACKLE_RADIUS = 0.042;
+      const TACKLE_RADIUS = 0.055;
+      const CHALLENGE_RADIUS = 0.048;
       const KICKER_GRACE_MS = 220;
+      const POSSESSION_GRACE_MS = 180;
+      const PASS_SPEED = 0.014;
+      const SHOT_SPEED = 0.02;
 
       const TEAMS = [
         { id: "england", name: "England", flagCode: "gb-eng", color: "#f5f5f5", stroke: "#c8102e" },
@@ -642,6 +646,7 @@
       let lastTs = 0;
       let lastKickerId = null;
       let lastKickAt = 0;
+      let possessionSince = 0;
       let actors = [];
       let ball = { x: 0.5, y: 0.5, vx: 0, vy: 0 };
       const keys = {
@@ -914,6 +919,7 @@
       function attachBallTo(player) {
         if (!player) return;
         possession = player.id;
+        possessionSince = performance.now();
         ball.vx = 0;
         ball.vy = 0;
         ball.x = player.x + (player.side === "home" ? 0.02 : -0.02);
@@ -925,6 +931,35 @@
         possession = null;
         lastKickerId = kickerId || null;
         lastKickAt = performance.now();
+      }
+
+      function showTackleMessage() {
+        gameMessage.textContent = "Tackle!";
+        setTimeout(function () {
+          if (gameMessage.textContent === "Tackle!") gameMessage.textContent = "";
+        }, 650);
+      }
+
+      function challengePossession() {
+        if (!possession || awaitingRestart || matchOver) return;
+        if (performance.now() - possessionSince < POSSESSION_GRACE_MS) return;
+
+        var holder = getActor(possession);
+        if (!holder) return;
+
+        var challengers = actors
+          .filter(function (p) {
+            return p.side !== holder.side && dist(p, holder) <= CHALLENGE_RADIUS;
+          })
+          .sort(function (a, b) {
+            return dist(a, holder) - dist(b, holder);
+          });
+
+        if (!challengers.length) return;
+
+        // Opponent stepped into the ball carrier's space — easy steal
+        attachBallTo(challengers[0]);
+        showTackleMessage();
       }
 
       function resolveBallPlayerCollisions() {
@@ -949,10 +984,7 @@
         attachBallTo(stopper);
         var kicker = lastKickerId ? getActor(lastKickerId) : null;
         if (kicker && stopper.side !== kicker.side) {
-          gameMessage.textContent = "Tackle!";
-          setTimeout(function () {
-            if (gameMessage.textContent === "Tackle!") gameMessage.textContent = "";
-          }, 650);
+          showTackleMessage();
         }
         return true;
       }
@@ -1027,8 +1059,8 @@
           var pdx = best.x - player.x;
           var pdy = best.y - player.y;
           var plen = Math.sqrt(pdx * pdx + pdy * pdy) || 1;
-          ball.vx = (pdx / plen) * 0.028;
-          ball.vy = (pdy / plen) * 0.028;
+          ball.vx = (pdx / plen) * PASS_SPEED;
+          ball.vy = (pdy / plen) * PASS_SPEED;
           gameMessage.textContent = "Pass!";
         } else {
           var targetX = player.side === "home" ? 1.02 : -0.02;
@@ -1036,8 +1068,8 @@
           var sdx = targetX - player.x;
           var sdy = targetY - player.y;
           var slen = Math.sqrt(sdx * sdx + sdy * sdy) || 1;
-          ball.vx = (sdx / slen) * 0.042;
-          ball.vy = (sdy / slen) * 0.042;
+          ball.vx = (sdx / slen) * SHOT_SPEED;
+          ball.vy = (sdy / slen) * SHOT_SPEED;
           gameMessage.textContent = "Shot!";
           if (player.side === "away") shotByCpu = true;
         }
@@ -1164,10 +1196,7 @@
           attachBallTo(stopper);
           var kicker = lastKickerId ? getActor(lastKickerId) : null;
           if (kicker && stopper.side !== kicker.side) {
-            gameMessage.textContent = "Tackle!";
-            setTimeout(function () {
-              if (gameMessage.textContent === "Tackle!") gameMessage.textContent = "";
-            }, 650);
+            showTackleMessage();
           }
           return;
         }
@@ -1360,6 +1389,7 @@
         if (!awaitingRestart) {
           handleUserInput(dtScale);
           updateAi(dtScale);
+          challengePossession();
           updateBall();
           updateControlled();
         }
@@ -1527,6 +1557,33 @@
           ball.vx = dir * 0.05;
           ball.vy = 0;
           return { target: target.id, from: { x: ball.x, y: ball.y } };
+        },
+        forceChallenge: function () {
+          var holder = possession ? getActor(possession) : null;
+          if (!holder) {
+            holder = actors.find(function (p) {
+              return p.side === "home" && p.role === "field";
+            });
+            if (!holder) return null;
+            attachBallTo(holder);
+          }
+          possessionSince = performance.now() - POSSESSION_GRACE_MS - 10;
+          var thief = actors.find(function (p) {
+            return p.side !== holder.side && p.role === "field";
+          });
+          if (!thief) return null;
+          thief.x = holder.x + 0.01;
+          thief.y = holder.y;
+          placeActors();
+          challengePossession();
+          return {
+            holderWas: holder.id,
+            possession: possession,
+            message: gameMessage.textContent,
+          };
+        },
+        kickSpeeds: function () {
+          return { pass: PASS_SPEED, shot: SHOT_SPEED, challenge: CHALLENGE_RADIUS };
         },
       };
     </script>
