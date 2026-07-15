@@ -358,6 +358,48 @@
         width: 100%;
         height: 100%;
         overflow: visible;
+        transform-origin: 50% 100%;
+      }
+      .player__leg,
+      .player__arm-swing {
+        transform-box: fill-box;
+        transform-origin: center top;
+      }
+      .player--running .player__svg {
+        animation: run-bob 0.26s ease-in-out infinite;
+      }
+      .player--running .player__leg--left {
+        animation: run-leg 0.26s ease-in-out infinite;
+      }
+      .player--running .player__leg--right {
+        animation: run-leg 0.26s ease-in-out infinite reverse;
+      }
+      .player--running .player__arm-swing--left {
+        animation: run-arm 0.26s ease-in-out infinite reverse;
+      }
+      .player--running .player__arm-swing--right {
+        animation: run-arm 0.26s ease-in-out infinite;
+      }
+      @keyframes run-bob {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-3px); }
+      }
+      @keyframes run-leg {
+        0%, 100% { transform: rotate(22deg); }
+        50% { transform: rotate(-22deg); }
+      }
+      @keyframes run-arm {
+        0%, 100% { transform: rotate(-16deg); }
+        50% { transform: rotate(16deg); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .player--running .player__svg,
+        .player--running .player__leg--left,
+        .player--running .player__leg--right,
+        .player--running .player__arm-swing--left,
+        .player--running .player__arm-swing--right {
+          animation: none;
+        }
       }
       .ball {
         position: absolute;
@@ -786,13 +828,23 @@
         return (
           '<svg class="player__svg" viewBox="0 0 48 72" aria-hidden="true">' +
           '<ellipse cx="24" cy="69" rx="12" ry="2.5" fill="rgba(0,0,0,0.28)"/>' +
+          '<g class="player__leg player__leg--left">' +
           '<rect x="14" y="46" width="6" height="16" rx="2" fill="#f0c4a0"/>' +
+          '<rect x="12" y="60" width="10" height="5" rx="2" fill="#111"/>' +
+          "</g>" +
+          '<g class="player__leg player__leg--right">' +
           '<rect x="28" y="46" width="6" height="16" rx="2" fill="#f0c4a0"/>' +
+          '<rect x="26" y="60" width="10" height="5" rx="2" fill="#111"/>' +
+          "</g>" +
           '<rect x="13" y="38" width="22" height="10" rx="2" fill="' + shorts + '"/>' +
+          '<g class="player__arm-swing player__arm-swing--left">' +
           '<rect x="4" y="22" width="8" height="16" rx="3" transform="rotate(18 8 22)" fill="#f0c4a0"/>' +
           '<circle cx="6" cy="40" r="3.2" fill="' + glove + '"/>' +
+          "</g>" +
+          '<g class="player__arm-swing player__arm-swing--right">' +
           '<rect x="36" y="22" width="8" height="16" rx="3" transform="rotate(-18 40 22)" fill="#f0c4a0"/>' +
           '<circle cx="42" cy="40" r="3.2" fill="' + glove + '"/>' +
+          "</g>" +
           '<rect x="12" y="18" width="24" height="22" rx="5" fill="' + kit + '" stroke="' + trim + '" stroke-width="1.5"/>' +
           '<path d="M20 18l4 5 4-5" fill="none" stroke="' + trim + '" stroke-width="1.5"/>' +
           '<circle cx="24" cy="10" r="9" fill="#f0c4a0" stroke="rgba(0,0,0,0.2)" stroke-width="1"/>' +
@@ -800,8 +852,6 @@
           '<circle cx="21" cy="10" r="1.2" fill="#222"/>' +
           '<circle cx="27" cy="10" r="1.2" fill="#222"/>' +
           '<path d="M21 13.5c1.2 1.4 4.8 1.4 6 0" fill="none" stroke="#b07a55" stroke-width="1.2" stroke-linecap="round"/>' +
-          '<rect x="12" y="60" width="10" height="5" rx="2" fill="#111"/>' +
-          '<rect x="26" y="60" width="10" height="5" rx="2" fill="#111"/>' +
           (isGk
             ? '<rect x="18" y="24" width="12" height="8" rx="2" fill="rgba(255,255,255,0.35)"/>'
             : "") +
@@ -830,7 +880,16 @@
 
         el.innerHTML = playerSvg(kit, trim, shorts, role === "gk");
         playersLayer.appendChild(el);
-        return { id: id, side: side, role: role, x: x, y: y, el: el, team: team };
+        return {
+          id: id,
+          side: side,
+          role: role,
+          x: x,
+          y: y,
+          el: el,
+          team: team,
+          moving: false,
+        };
       }
 
       function placeActors() {
@@ -838,9 +897,16 @@
           p.el.style.left = p.x * 100 + "%";
           p.el.style.top = p.y * 100 + "%";
           p.el.classList.toggle("player--controlled", p.id === controlledId);
+          p.el.classList.toggle("player--running", !!p.moving);
         });
         ballEl.style.left = ball.x * 100 + "%";
         ballEl.style.top = ball.y * 100 + "%";
+      }
+
+      function clearMovingFlags() {
+        actors.forEach(function (p) {
+          p.moving = false;
+        });
       }
 
       function resetPositions(kickoffSide) {
@@ -1009,13 +1075,16 @@
       function movePlayer(p, dx, dy, speed) {
         if (!dx && !dy) return;
         var len = Math.sqrt(dx * dx + dy * dy) || 1;
-        p.x = clamp(p.x + (dx / len) * speed, 0.04, 0.96);
-        p.y = clamp(p.y + (dy / len) * speed, 0.06, 0.94);
+        var step = speed;
+        if (step <= 0) return;
+        p.x = clamp(p.x + (dx / len) * step, 0.04, 0.96);
+        p.y = clamp(p.y + (dy / len) * step, 0.06, 0.94);
         if (p.role === "gk") {
           if (p.side === "home") p.x = clamp(p.x, 0.04, 0.14);
           else p.x = clamp(p.x, 0.86, 0.96);
           p.y = clamp(p.y, 0.28, 0.72);
         }
+        p.moving = true;
       }
 
       function handleUserInput(dtScale) {
@@ -1411,6 +1480,7 @@
         }
 
         if (!awaitingRestart) {
+          clearMovingFlags();
           handleUserInput(dtScale);
           updateAi(dtScale);
           challengePossession();
