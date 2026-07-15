@@ -2,16 +2,11 @@
 
 A simple World Cup soccer game.
 
-## Getting started
+## Play
 
-```bash
-npm install
-npm run dev
-```
+Open [the live site](https://jackson24601.github.io/worldcup/) or open `index.html` in a browser.
 
-Open the local URL shown in the terminal to play.
+## Screens
 
-## Current screens
-
-1. **Landing** — Press **Play!** to begin
-2. **Team select** — Choose England, USA, France, Mexico, Japan, Australia, Brazil, or Argentina
+1. **Landing** — soccer pitch background with a **Play!** button
+2. **Team select** — choose England, USA, France, Mexico, Japan, Australia, Brazil, or Argentina
