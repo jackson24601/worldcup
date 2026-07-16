@@ -19,7 +19,7 @@ If the page looks blank, hard-refresh (Ctrl+Shift+R / Cmd+Shift+R) — an older 
 ### Match rules
 
 - Coin flip decides who starts with the ball
-- Two halves of five minutes each
+- Two halves of two minutes and thirty seconds each
 - Score and clock sit in boxes at the bottom of the screen
 - Quarterfinal player movement is a bit slower; AI is slower than you, but attacks: keeper clears quickly, field players pass, press, and try to score
 - Win the quarterfinals to see fireworks and advance to the semifinals
