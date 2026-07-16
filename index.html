@@ -553,8 +553,8 @@
       <ul id="team-grid" class="team-grid" role="list"></ul>
     </main>
 
-    <main id="quarterfinals" class="screen quarterfinals" hidden>
-      <h1 class="quarterfinals__title">Quarterfinals!!!!!</h1>
+      <main id="quarterfinals" class="screen quarterfinals" hidden>
+      <h1 id="matchup-title" class="quarterfinals__title">Quarterfinals!!!!!</h1>
       <div class="matchup" aria-live="polite">
         <div class="matchup__side">
           <img id="player-flag" class="matchup__flag" src="" alt="" width="140" height="93" />
@@ -612,8 +612,10 @@
     <script>
       const DEFAULT_HALF_LENGTH_MS = 5 * 60 * 1000;
       const PLAYER_SPEED = 0.0032;
-      const AI_SPEED = 0.00155;
-      const AI_SUPPORT_SPEED = 0.00125;
+      const AI_SPEED_QF = 0.00155;
+      const AI_SUPPORT_SPEED_QF = 0.00125;
+      const AI_SPEED_SF = 0.00245;
+      const AI_SUPPORT_SPEED_SF = 0.00205;
       const BALL_FRICTION = 0.978;
       const POSSESSION_RADIUS = 0.035;
       const TACKLE_RADIUS = 0.055;
@@ -647,6 +649,7 @@
       const backBtn = document.getElementById("back-btn");
       const kickoffBtn = document.getElementById("kickoff-btn");
       const teamGrid = document.getElementById("team-grid");
+      const matchupTitle = document.getElementById("matchup-title");
       const playerFlag = document.getElementById("player-flag");
       const playerName = document.getElementById("player-name");
       const opponentFlag = document.getElementById("opponent-flag");
@@ -673,6 +676,10 @@
 
       let selectedTeam = null;
       let opponentTeam = null;
+      let quarterfinalOpponent = null;
+      let tournamentRound = "quarterfinals";
+      let aiSpeed = AI_SPEED_QF;
+      let aiSupportSpeed = AI_SUPPORT_SPEED_QF;
       let playerGoals = 0;
       let opponentGoals = 0;
       let half = 1;
@@ -768,6 +775,9 @@
         landing.hidden = false;
         selectedTeam = null;
         opponentTeam = null;
+        quarterfinalOpponent = null;
+        tournamentRound = "quarterfinals";
+        applyAiDifficulty();
         overlay.hidden = true;
         goalBanner.hidden = true;
       }
@@ -779,6 +789,27 @@
         teamSelect.hidden = false;
       }
 
+      function applyAiDifficulty() {
+        if (tournamentRound === "semifinals") {
+          aiSpeed = AI_SPEED_SF;
+          aiSupportSpeed = AI_SUPPORT_SPEED_SF;
+        } else {
+          aiSpeed = AI_SPEED_QF;
+          aiSupportSpeed = AI_SUPPORT_SPEED_QF;
+        }
+      }
+
+      function shuffle(list) {
+        var copy = list.slice();
+        for (var i = copy.length - 1; i > 0; i--) {
+          var j = Math.floor(Math.random() * (i + 1));
+          var tmp = copy[i];
+          copy[i] = copy[j];
+          copy[j] = tmp;
+        }
+        return copy;
+      }
+
       function pickOpponent(playerTeam) {
         var opponents = TEAMS.filter(function (team) {
           return team.id !== playerTeam.id;
@@ -786,18 +817,45 @@
         return opponents[Math.floor(Math.random() * opponents.length)];
       }
 
-      function showQuarterfinals(playerTeam) {
-        opponentTeam = pickOpponent(playerTeam);
-        selectedTeam = playerTeam;
-        playerFlag.src = flagUrl(playerTeam.flagCode);
-        playerFlag.alt = playerTeam.name + " flag";
-        playerName.textContent = playerTeam.name;
+      function pickSemifinalOpponent(playerTeam, previousOpponent) {
+        var pool = TEAMS.filter(function (team) {
+          return team.id !== playerTeam.id && (!previousOpponent || team.id !== previousOpponent.id);
+        });
+        // Four other teams still in the tournament; play one of them
+        var remainingFour = shuffle(pool).slice(0, 4);
+        return remainingFour[Math.floor(Math.random() * remainingFour.length)];
+      }
+
+      function showMatchupScreen(title) {
+        matchupTitle.textContent = title;
+        playerFlag.src = flagUrl(selectedTeam.flagCode);
+        playerFlag.alt = selectedTeam.name + " flag";
+        playerName.textContent = selectedTeam.name;
         opponentFlag.src = flagUrl(opponentTeam.flagCode);
         opponentFlag.alt = opponentTeam.name + " flag";
         opponentName.textContent = opponentTeam.name;
         hideAllScreens();
         showCrowd();
         quarterfinals.hidden = false;
+      }
+
+      function showQuarterfinals(playerTeam) {
+        tournamentRound = "quarterfinals";
+        applyAiDifficulty();
+        selectedTeam = playerTeam;
+        opponentTeam = pickOpponent(playerTeam);
+        quarterfinalOpponent = opponentTeam;
+        showMatchupScreen("Quarterfinals!!!!!");
+      }
+
+      function showSemifinals() {
+        if (!selectedTeam) return;
+        stopLoop();
+        hideOverlay();
+        tournamentRound = "semifinals";
+        applyAiDifficulty();
+        opponentTeam = pickSemifinalOpponent(selectedTeam, quarterfinalOpponent);
+        showMatchupScreen("Semifinals!!!!!");
       }
 
       function homeFormation() {
@@ -1270,21 +1328,23 @@
         var distGoal = Math.abs(toGoalX);
 
         // Shoot when near the box
+        var shootChance = tournamentRound === "semifinals" ? 0.075 : 0.05;
         if (distGoal < 0.3 && Math.abs(p.y - 0.5) < 0.24) {
-          if (Math.random() < 0.05 * dtScale) {
+          if (Math.random() < shootChance * dtScale) {
             passOrShoot(p, false);
             return;
           }
         }
 
         // Pass ahead often to keep the attack moving
-        if (Math.random() < 0.018 * dtScale) {
+        var passChance = tournamentRound === "semifinals" ? 0.028 : 0.018;
+        if (Math.random() < passChance * dtScale) {
           if (aiPassToTeammate(p, true)) return;
         }
 
         // Dribble toward goal with a bit of lane drift
         var weave = Math.sin(performance.now() / 280 + p.id.length) * 0.35;
-        movePlayer(p, toGoalX, toGoalY + weave, AI_SPEED * dtScale);
+        movePlayer(p, toGoalX, toGoalY + weave, aiSpeed * dtScale);
         ball.x = p.x + (p.side === "home" ? 0.02 : -0.02);
         ball.y = p.y;
       }
@@ -1302,7 +1362,7 @@
 
           if (p.role === "gk") {
             var gy = clamp(ball.y, 0.3, 0.7);
-            movePlayer(p, 0, gy - p.y, AI_SPEED * 0.75 * dtScale);
+            movePlayer(p, 0, gy - p.y, aiSpeed * 0.75 * dtScale);
             return;
           }
 
@@ -1312,23 +1372,23 @@
               p.id.endsWith("1") ? 0.28 : p.id.endsWith("2") ? 0.72 : 0.5;
             var supportX = clamp((holder ? holder.x : ball.x) - 0.14, 0.22, 0.82);
             if (p.id.endsWith("3")) supportX = clamp((holder ? holder.x : ball.x) - 0.22, 0.18, 0.7);
-            movePlayer(p, supportX - p.x, lane - p.y, AI_SUPPORT_SPEED * dtScale);
+            movePlayer(p, supportX - p.x, lane - p.y, aiSupportSpeed * dtScale);
             return;
           }
 
           // Defend / press when the user has the ball (or it's loose)
           var chaser = closestToBall("away", false);
           if (chaser && chaser.id === p.id) {
-            movePlayer(p, ball.x - p.x, ball.y - p.y, AI_SPEED * 1.05 * dtScale);
+            movePlayer(p, ball.x - p.x, ball.y - p.y, aiSpeed * 1.05 * dtScale);
           } else if (homeHasBall && holder) {
             // Cut toward the ball side and apply pressure
             var pressX = clamp(holder.x + 0.08, 0.35, 0.9);
             var pressY = clamp(holder.y + (p.id.endsWith("1") ? -0.12 : 0.12), 0.18, 0.82);
-            movePlayer(p, pressX - p.x, pressY - p.y, AI_SUPPORT_SPEED * dtScale);
+            movePlayer(p, pressX - p.x, pressY - p.y, aiSupportSpeed * dtScale);
           } else {
             var recoverX = clamp(ball.x + 0.1, 0.45, 0.88);
             var recoverY = p.id.endsWith("1") ? 0.3 : p.id.endsWith("2") ? 0.7 : 0.5;
-            movePlayer(p, recoverX - p.x, recoverY - p.y, AI_SUPPORT_SPEED * 0.85 * dtScale);
+            movePlayer(p, recoverX - p.x, recoverY - p.y, aiSupportSpeed * 0.85 * dtScale);
           }
         });
 
@@ -1547,7 +1607,16 @@
         var won = playerGoals > opponentGoals;
         var drawn = playerGoals === opponentGoals;
         if (won) {
-          showOverlay("You Win!!!!!", selectedTeam.name + " advance!", true, false);
+          if (tournamentRound === "quarterfinals") {
+            showOverlay("You Win!!!!!", selectedTeam.name + " advance!", true, false);
+          } else {
+            showOverlay(
+              "You Win!!!!!",
+              selectedTeam.name + " advance to the Finals! Finals coming soon!!!!",
+              false,
+              false
+            );
+          }
           launchFireworks();
         } else if (drawn) {
           showOverlay("Draw", "So close! Refresh to try again.", false, false);
@@ -1709,10 +1778,7 @@
       backBtn.addEventListener("click", showLanding);
       kickoffBtn.addEventListener("click", startMatch);
       continueBtn.addEventListener("click", startSecondHalf);
-      semifinalsBtn.addEventListener("click", function () {
-        gameMessage.textContent = "Semifinals coming soon!!!!";
-        hideOverlay();
-      });
+      semifinalsBtn.addEventListener("click", showSemifinals);
 
       // Test helpers
       window.__worldcup = {
@@ -1727,6 +1793,7 @@
           updateHud();
           endMatch();
         },
+        showSemifinals: showSemifinals,
         getState: function () {
           return {
             half: half,
@@ -1739,6 +1806,10 @@
             playerKickoffFirst: playerKickoffFirst,
             selected: selectedTeam && selectedTeam.name,
             opponent: opponentTeam && opponentTeam.name,
+            quarterfinalOpponent: quarterfinalOpponent && quarterfinalOpponent.name,
+            tournamentRound: tournamentRound,
+            aiSpeed: aiSpeed,
+            aiSupportSpeed: aiSupportSpeed,
             overlayHidden: overlay.hidden,
             semifinalsVisible: !semifinalsBtn.hidden,
             goalBannerHidden: goalBanner.hidden,
