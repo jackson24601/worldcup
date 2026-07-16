@@ -21,6 +21,6 @@ If the page looks blank, hard-refresh (Ctrl+Shift+R / Cmd+Shift+R) — an older 
 - Coin flip decides who starts with the ball
 - Two halves of five minutes each
 - Score and clock sit in boxes at the bottom of the screen
-- Quarterfinal AI is slower than you, but attacks: keeper clears quickly, field players pass, press, and try to score
+- Quarterfinal player movement is a bit slower; AI is slower than you, but attacks: keeper clears quickly, field players pass, press, and try to score
 - Win the quarterfinals to see fireworks and advance to the semifinals
 - Semifinal AI moves faster and presses harder — still beatable, but tougher than the quarters
