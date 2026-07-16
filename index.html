@@ -383,6 +383,17 @@
         z-index: 3;
         filter: drop-shadow(0 0 4px #f0c93b) drop-shadow(0 0 8px rgba(240, 201, 59, 0.85));
       }
+      .player--sliding {
+        z-index: 4;
+      }
+      .player--sliding .player__svg {
+        animation: none !important;
+        transform: rotate(-58deg) scale(1.2, 0.42);
+        transform-origin: 50% 85%;
+      }
+      .player--away.player--sliding .player__svg {
+        transform: rotate(58deg) scale(1.2, 0.42);
+      }
       .player__svg {
         display: block;
         width: 100%;
@@ -606,7 +617,7 @@
 
     <main id="game" class="screen game" hidden>
       <p id="game-message" class="game__message" aria-live="polite"></p>
-      <div id="field" class="field" tabindex="0" role="application" aria-label="Soccer match. Arrow keys move. Hold an arrow and press Space to pass that way. Space alone shoots.">
+      <div id="field" class="field" tabindex="0" role="application" aria-label="Soccer match. Arrow keys move. Hold an arrow and press Space to pass that way. Space alone shoots. Shift plus a direction slide tackles on defense.">
         <div class="field__midline" aria-hidden="true"></div>
         <div class="field__circle" aria-hidden="true"></div>
         <div class="field__goal field__goal--left" aria-hidden="true"></div>
@@ -663,6 +674,10 @@
       const BEATEN_GRACE_MS = 420;
       const PASS_SPEED = 0.014;
       const SHOT_SPEED = 0.02;
+      const SLIDE_DURATION_MS = 260;
+      const SLIDE_COOLDOWN_MS = 420;
+      const SLIDE_HIT_RADIUS = 0.058;
+      const BUMP_RADIUS = 0.042;
 
       const TEAMS = [
         { id: "england", name: "England", flagCode: "gb-eng", color: "#f5f5f5", stroke: "#c8102e" },
@@ -739,6 +754,10 @@
       let possessionSince = 0;
       let beatenId = null;
       let beatenAt = 0;
+      let slidingId = null;
+      let slideUntil = 0;
+      let slideCooldownUntil = 0;
+      let slideDir = { x: 1, y: 0 };
       let actors = [];
       let ball = { x: 0.5, y: 0.5, vx: 0, vy: 0 };
       const keys = {
@@ -747,6 +766,7 @@
         ArrowLeft: false,
         ArrowRight: false,
         " ": false,
+        Shift: false,
       };
 
       function flagUrl(flagCode) {
@@ -1000,7 +1020,8 @@
           p.el.style.left = p.x * 100 + "%";
           p.el.style.top = p.y * 100 + "%";
           p.el.classList.toggle("player--controlled", p.id === controlledId);
-          p.el.classList.toggle("player--running", !!p.moving);
+          p.el.classList.toggle("player--running", !!p.moving && p.id !== slidingId);
+          p.el.classList.toggle("player--sliding", p.id === slidingId);
         });
         ballEl.style.left = ball.x * 100 + "%";
         ballEl.style.top = ball.y * 100 + "%";
@@ -1104,11 +1125,129 @@
         lastKickAt = performance.now();
       }
 
-      function showTackleMessage() {
-        gameMessage.textContent = "Tackle!";
+      function showTackleMessage(label) {
+        var text = label || "Tackle!";
+        gameMessage.textContent = text;
         setTimeout(function () {
-          if (gameMessage.textContent === "Tackle!") gameMessage.textContent = "";
+          if (gameMessage.textContent === text) gameMessage.textContent = "";
         }, 650);
+      }
+
+      function slideDistanceNorm() {
+        // About half an inch on the screen, relative to the pitch width
+        var rect = field.getBoundingClientRect();
+        var px = 0.5 * 96;
+        return clamp(px / Math.max(rect.width, 1), 0.035, 0.08);
+      }
+
+      function endSlide() {
+        slidingId = null;
+        slideUntil = 0;
+      }
+
+      function resetSlideState() {
+        endSlide();
+        slideCooldownUntil = 0;
+        slideDir = { x: 1, y: 0 };
+      }
+
+      function getSlideDirection(player) {
+        var aim = getAimDirection();
+        if (aim) return aim;
+        if (possession) {
+          var holder = getActor(possession);
+          if (holder && holder.id !== player.id) {
+            var dx = holder.x - player.x;
+            var dy = holder.y - player.y;
+            var len = Math.sqrt(dx * dx + dy * dy) || 1;
+            return { x: dx / len, y: dy / len };
+          }
+        }
+        return { x: 1, y: 0 };
+      }
+
+      function startSlide() {
+        if (awaitingRestart || matchOver) return;
+        var controlled = getActor(controlledId);
+        if (!controlled || controlled.side !== "home") return;
+        // Slide tackle is a defensive move — not while you have the ball
+        if (possession === controlled.id) return;
+        if (slidingId) return;
+        if (performance.now() < slideCooldownUntil) return;
+
+        slideDir = getSlideDirection(controlled);
+        slidingId = controlled.id;
+        slideUntil = performance.now() + SLIDE_DURATION_MS;
+        slideCooldownUntil = slideUntil + SLIDE_COOLDOWN_MS;
+        controlled.moving = true;
+      }
+
+      function trySlideSteal(slider) {
+        if (!possession) return false;
+        var holder = getActor(possession);
+        if (!holder || holder.side === slider.side) return false;
+        var radius = holder.role === "gk" ? GK_CHALLENGE_RADIUS : SLIDE_HIT_RADIUS;
+        if (dist(slider, holder) > radius) return false;
+        beatenId = holder.id;
+        beatenAt = performance.now();
+        attachBallTo(slider);
+        showTackleMessage("Slide tackle!");
+        endSlide();
+        return true;
+      }
+
+      function updateSlide(dtScale) {
+        if (!slidingId) return;
+        var slider = getActor(slidingId);
+        if (!slider || performance.now() >= slideUntil) {
+          endSlide();
+          return;
+        }
+
+        var step = (slideDistanceNorm() / (SLIDE_DURATION_MS / 16.67)) * dtScale;
+        movePlayer(slider, slideDir.x, slideDir.y, step);
+        trySlideSteal(slider);
+      }
+
+      function bumpApart(a, b) {
+        var dx = a.x - b.x;
+        var dy = a.y - b.y;
+        var d = Math.sqrt(dx * dx + dy * dy) || 0.0001;
+        var radius = b.role === "gk" || a.role === "gk" ? BUMP_RADIUS * 1.15 : BUMP_RADIUS;
+        if (d >= radius) return;
+        var push = (radius - d) / 2 + 0.003;
+        var nx = dx / d;
+        var ny = dy / d;
+
+        if (a.role !== "gk") {
+          a.x = clamp(a.x + nx * push, 0.04, 0.96);
+          a.y = clamp(a.y + ny * push, 0.06, 0.94);
+        } else if (a.side === "home") {
+          a.y = clamp(a.y + ny * push, 0.28, 0.72);
+        } else {
+          a.y = clamp(a.y + ny * push, 0.28, 0.72);
+        }
+
+        if (b.role !== "gk") {
+          b.x = clamp(b.x - nx * push, 0.04, 0.96);
+          b.y = clamp(b.y - ny * push, 0.06, 0.94);
+        } else {
+          b.y = clamp(b.y - ny * push, 0.28, 0.72);
+        }
+      }
+
+      // Without a slide tackle, defenders and ball-carriers bounce apart — no steal
+      function resolveDefensiveBumps() {
+        if (!possession || awaitingRestart || matchOver) return;
+        var holder = getActor(possession);
+        if (!holder || holder.side !== "away") return;
+
+        teamActors("home").forEach(function (p) {
+          if (p.id === slidingId) return;
+          var radius = holder.role === "gk" ? GK_CHALLENGE_RADIUS * 0.9 : BUMP_RADIUS;
+          if (dist(p, holder) > radius) return;
+          bumpApart(p, holder);
+        });
       }
 
       function challengePossession() {
@@ -1117,7 +1256,10 @@
         var holder = getActor(possession);
         if (!holder) return;
 
-        // Keepers can be dispossessed more easily / sooner by an attacker on top of them
+        // Home defenders only win the ball with a slide tackle (see updateSlide).
+        // Away AI can still challenge when the user has possession.
+        if (holder.side !== "home") return;
+
         var grace = holder.role === "gk" ? 60 : POSSESSION_GRACE_MS;
         if (performance.now() - possessionSince < grace) return;
 
@@ -1125,11 +1267,9 @@
         var challengers = actors
           .filter(function (p) {
             if (p.side === holder.side) return false;
-            // Field attackers (and the other keeper) can take it; prefer field players
             return dist(p, holder) <= radius;
           })
           .sort(function (a, b) {
-            // Prefer field players over a rushing keeper
             if (a.role !== b.role) return a.role === "field" ? -1 : 1;
             return dist(a, holder) - dist(b, holder);
           });
@@ -1215,6 +1355,7 @@
       function handleUserInput(dtScale) {
         var controlled = getActor(controlledId);
         if (!controlled || controlled.side !== "home") return;
+        if (slidingId === controlled.id) return;
         var dx = 0;
         var dy = 0;
         if (keys.ArrowLeft) dx -= 1;
@@ -1720,7 +1861,9 @@
         if (!awaitingRestart) {
           clearMovingFlags();
           handleUserInput(dtScale);
-          // Steals resolve before AI actions so attackers can take it off the keeper
+          updateSlide(dtScale);
+          resolveDefensiveBumps();
+          // Away AI can still challenge the user; home only steals via slide tackle
           challengePossession();
           updateAi(dtScale);
           updateBall();
@@ -1740,6 +1883,7 @@
         matchOver = false;
         awaitingRestart = false;
         shotByCpu = false;
+        resetSlideState();
         playerKickoffFirst = Math.random() < 0.5;
         hideOverlay();
         createActors();
@@ -1794,8 +1938,16 @@
       });
 
       window.addEventListener("keydown", function (event) {
-        if (!(event.key in keys) && event.key !== " ") return;
         if (game.hidden || !gameActive || awaitingRestart || matchOver) return;
+
+        if (event.key === "Shift" || event.code === "ShiftLeft" || event.code === "ShiftRight") {
+          event.preventDefault();
+          keys.Shift = true;
+          if (!event.repeat) startSlide();
+          return;
+        }
+
+        if (!(event.key in keys) && event.key !== " ") return;
         if (event.key === " " || event.key.startsWith("Arrow")) event.preventDefault();
         if (event.key === " ") {
           if (!keys[" "]) {
@@ -1809,7 +1961,11 @@
       });
 
       window.addEventListener("keyup", function (event) {
-        if (event.key === " ") keys[" "] = false;
+        if (event.key === " " ) keys[" "] = false;
+        if (event.key === "Shift" || event.code === "ShiftLeft" || event.code === "ShiftRight") {
+          keys.Shift = false;
+          return;
+        }
         if (event.key in keys) keys[event.key] = false;
       });
 
@@ -1850,6 +2006,7 @@
             playerSpeed: playerSpeed,
             aiSpeed: aiSpeed,
             aiSupportSpeed: aiSupportSpeed,
+            slidingId: slidingId,
             overlayHidden: overlay.hidden,
             semifinalsVisible: !semifinalsBtn.hidden,
             goalBannerHidden: goalBanner.hidden,
@@ -1911,18 +2068,23 @@
             return p.side === "home" && p.role === "field";
           });
           if (!gk || !attacker) return null;
+          resetSlideState();
           attachBallTo(gk);
           possessionSince = performance.now() - 100;
-          attacker.x = gk.x - 0.03;
+          attacker.x = gk.x - 0.04;
           attacker.y = gk.y;
           controlledId = attacker.id;
+          keys.ArrowRight = true;
           placeActors();
-          challengePossession();
+          startSlide();
+          trySlideSteal(attacker);
+          keys.ArrowRight = false;
           return {
             possession: possession,
             controlledId: controlledId,
             message: gameMessage.textContent,
             nearGoal: attacker.x > 0.85,
+            slidingId: slidingId,
           };
         },
         forceChallenge: function () {
@@ -1939,18 +2101,50 @@
             return p.side !== holder.side && p.role === "field";
           });
           if (!thief) return null;
-          thief.x = holder.x + 0.01;
+          thief.x = holder.x + (thief.side === "home" ? -0.02 : 0.02);
           thief.y = holder.y;
           placeActors();
-          challengePossession();
+          if (thief.side === "home") {
+            // Home can only win the ball with a slide tackle
+            controlledId = thief.id;
+            resetSlideState();
+            keys.ArrowRight = holder.x >= thief.x;
+            keys.ArrowLeft = holder.x < thief.x;
+            startSlide();
+            trySlideSteal(thief);
+            keys.ArrowRight = keys.ArrowLeft = false;
+          } else {
+            challengePossession();
+          }
           return {
             holderWas: holder.id,
             possession: possession,
             message: gameMessage.textContent,
           };
         },
+        slideTackle: function (dir) {
+          var controlled = getActor(controlledId);
+          if (!controlled) return null;
+          resetSlideState();
+          keys.ArrowUp = dir === "up";
+          keys.ArrowDown = dir === "down";
+          keys.ArrowLeft = dir === "left";
+          keys.ArrowRight = dir === "right" || !dir;
+          startSlide();
+          keys.ArrowUp = keys.ArrowDown = keys.ArrowLeft = keys.ArrowRight = false;
+          return {
+            slidingId: slidingId,
+            slideDir: { x: slideDir.x, y: slideDir.y },
+            slideUntil: slideUntil,
+          };
+        },
         kickSpeeds: function () {
-          return { pass: PASS_SPEED, shot: SHOT_SPEED, challenge: CHALLENGE_RADIUS };
+          return {
+            pass: PASS_SPEED,
+            shot: SHOT_SPEED,
+            challenge: CHALLENGE_RADIUS,
+            slideHit: SLIDE_HIT_RADIUS,
+          };
         },
         aimPass: function (dir) {
           // dir: 'up' | 'down' | 'left' | 'right'
