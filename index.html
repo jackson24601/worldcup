@@ -7,6 +7,9 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <title>World Cup</title>
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&display=swap" rel="stylesheet" />
     <style>
       * { box-sizing: border-box; }
       html, body {
@@ -75,9 +78,36 @@
       }
       .landing {
         display: flex;
+        flex-direction: column;
         align-items: center;
-        justify-content: center;
-        padding: 1.5rem;
+        justify-content: flex-start;
+        gap: clamp(3rem, 12vh, 6.5rem);
+        padding: clamp(1.75rem, 6vh, 3.25rem) 1.5rem 1.5rem;
+      }
+      .landing__title {
+        margin: 0;
+        text-align: center;
+        font-family: "Fredoka", "Segoe UI Rounded", "Arial Rounded MT Bold", sans-serif;
+        font-weight: 700;
+        font-size: clamp(3.6rem, 16vw, 7.5rem);
+        line-height: 0.92;
+        letter-spacing: 0.06em;
+        color: #fff4b0;
+        -webkit-text-stroke: 0.055em #12301c;
+        paint-order: stroke fill;
+        text-shadow:
+          0 0.04em 0 #e8b93a,
+          0 0.08em 0 #c49218,
+          0 0.12em 0 #0d2818,
+          0 0.16em 0.18em rgba(0, 0, 0, 0.35);
+        animation: bubble-bob 2.8s ease-in-out infinite;
+      }
+      .landing__title span {
+        display: block;
+      }
+      @keyframes bubble-bob {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-0.12em); }
       }
       .play-btn {
         display: inline-block;
@@ -518,6 +548,7 @@
         to { opacity: 1; transform: translateY(0) scale(1); }
       }
       @media (prefers-reduced-motion: reduce) {
+        .landing__title,
         .quarterfinals__title,
         .matchup,
         .kickoff-btn,
@@ -535,6 +566,10 @@
     <div id="crowd" class="crowd-backdrop" aria-hidden="true" hidden></div>
 
     <main id="landing" class="screen landing">
+      <h1 class="landing__title" aria-label="World Cup">
+        <span>World</span>
+        <span>Cup</span>
+      </h1>
       <button
         type="button"
         id="play-btn"
