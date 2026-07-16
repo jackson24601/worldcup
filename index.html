@@ -646,7 +646,8 @@
 
     <script>
       const DEFAULT_HALF_LENGTH_MS = 5 * 60 * 1000;
-      const PLAYER_SPEED = 0.0032;
+      const PLAYER_SPEED_QF = 0.00288; // 10% slower than base for quarterfinals
+      const PLAYER_SPEED_SF = 0.0032;
       const AI_SPEED_QF = 0.00155;
       const AI_SUPPORT_SPEED_QF = 0.00125;
       const AI_SPEED_SF = 0.00245;
@@ -713,6 +714,7 @@
       let opponentTeam = null;
       let quarterfinalOpponent = null;
       let tournamentRound = "quarterfinals";
+      let playerSpeed = PLAYER_SPEED_QF;
       let aiSpeed = AI_SPEED_QF;
       let aiSupportSpeed = AI_SUPPORT_SPEED_QF;
       let playerGoals = 0;
@@ -826,9 +828,11 @@
 
       function applyAiDifficulty() {
         if (tournamentRound === "semifinals") {
+          playerSpeed = PLAYER_SPEED_SF;
           aiSpeed = AI_SPEED_SF;
           aiSupportSpeed = AI_SUPPORT_SPEED_SF;
         } else {
+          playerSpeed = PLAYER_SPEED_QF;
           aiSpeed = AI_SPEED_QF;
           aiSupportSpeed = AI_SUPPORT_SPEED_QF;
         }
@@ -1217,7 +1221,7 @@
         if (keys.ArrowRight) dx += 1;
         if (keys.ArrowUp) dy -= 1;
         if (keys.ArrowDown) dy += 1;
-        movePlayer(controlled, dx, dy, PLAYER_SPEED * dtScale);
+        movePlayer(controlled, dx, dy, playerSpeed * dtScale);
         if (possession === controlled.id) {
           ball.x = controlled.x + 0.02;
           ball.y = controlled.y;
@@ -1432,12 +1436,12 @@
           if (p.role === "gk") {
             if (shotByCpu) return;
             var gy = clamp(ball.y, 0.3, 0.7);
-            movePlayer(p, 0, gy - p.y, PLAYER_SPEED * 0.35 * dtScale);
+            movePlayer(p, 0, gy - p.y, playerSpeed * 0.35 * dtScale);
             return;
           }
           if (possession && getActor(possession) && getActor(possession).side === "home") {
             var supportX = clamp(ball.x - 0.08, 0.15, 0.7);
-            movePlayer(p, supportX - p.x, (p.y < 0.5 ? 0.3 : 0.7) - p.y, PLAYER_SPEED * 0.25 * dtScale);
+            movePlayer(p, supportX - p.x, (p.y < 0.5 ? 0.3 : 0.7) - p.y, playerSpeed * 0.25 * dtScale);
           }
         });
       }
@@ -1843,6 +1847,7 @@
             opponent: opponentTeam && opponentTeam.name,
             quarterfinalOpponent: quarterfinalOpponent && quarterfinalOpponent.name,
             tournamentRound: tournamentRound,
+            playerSpeed: playerSpeed,
             aiSpeed: aiSpeed,
             aiSupportSpeed: aiSupportSpeed,
             overlayHidden: overlay.hidden,
