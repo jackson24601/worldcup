@@ -25,4 +25,4 @@ If the page looks blank, hard-refresh (Ctrl+Shift+R / Cmd+Shift+R) — an older 
 - Your uncontrolled teammates push up toward goal when you have the ball, and swarm the ball-carrier when the computer has it; your goalie is a bit quicker
 - On defense, press **Shift** with a direction to slide tackle and win the ball; standing contact only bumps players and leaves possession unchanged
 - Win the quarterfinals to see fireworks and advance to the semifinals
-- Semifinal AI moves faster and presses harder — still beatable, but tougher than the quarters
+- Semifinal AI is still faster than the quarters, but 25% slower than before — tougher than QF, more manageable now
