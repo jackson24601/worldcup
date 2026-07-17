@@ -1634,18 +1634,41 @@
           }
         });
 
+        // Uncontrolled home teammates: push up on attack, swarm the ball on defense
+        var homeGkSpeed = playerSpeed * 0.35 * 1.25; // 25% faster than before
         teamActors("home").forEach(function (p) {
           if (p.id === controlledId) return;
+
           if (p.role === "gk") {
             if (shotByCpu) return;
-            var gy = clamp(ball.y, 0.3, 0.7);
-            movePlayer(p, 0, gy - p.y, playerSpeed * 0.35 * dtScale);
+            if (awayHasBall && holder) {
+              // Track the ball-carrier as far as the box allows
+              movePlayer(p, holder.x - p.x, holder.y - p.y, homeGkSpeed * dtScale);
+            } else {
+              var gy = clamp(ball.y, 0.3, 0.7);
+              movePlayer(p, 0, gy - p.y, homeGkSpeed * dtScale);
+            }
             return;
           }
-          if (possession && getActor(possession) && getActor(possession).side === "home") {
-            var supportX = clamp(ball.x - 0.08, 0.15, 0.7);
-            movePlayer(p, supportX - p.x, (p.y < 0.5 ? 0.3 : 0.7) - p.y, playerSpeed * 0.25 * dtScale);
+
+          if (homeHasBall && holder) {
+            // Make runs up toward the opposing goal
+            var lane =
+              p.id.endsWith("1") ? 0.28 : p.id.endsWith("2") ? 0.72 : 0.5;
+            var attackX = clamp(holder.x + 0.18, 0.32, 0.88);
+            if (p.id.endsWith("3")) attackX = clamp(holder.x + 0.26, 0.4, 0.92);
+            movePlayer(p, attackX - p.x, lane - p.y, playerSpeed * 0.6 * dtScale);
+            return;
           }
+
+          if (awayHasBall && holder) {
+            // Converge on the computer player with possession
+            movePlayer(p, holder.x - p.x, holder.y - p.y, playerSpeed * 0.75 * dtScale);
+            return;
+          }
+
+          // Loose ball — close it down
+          movePlayer(p, ball.x - p.x, ball.y - p.y, playerSpeed * 0.5 * dtScale);
         });
       }
 
