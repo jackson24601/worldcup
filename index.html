@@ -1486,6 +1486,17 @@
         // No aim direction: shoot toward goal
         var targetX = player.side === "home" ? 1.02 : -0.02;
         var targetY = 0.5 + (Math.random() * 0.16 - 0.08);
+        // Quarterfinals: CPU only hits the net about 1 in 3 shots
+        if (
+          player.side === "away" &&
+          tournamentRound === "quarterfinals" &&
+          Math.random() >= 1 / 3
+        ) {
+          targetY =
+            Math.random() < 0.5
+              ? 0.08 + Math.random() * 0.16
+              : 0.76 + Math.random() * 0.16;
+        }
         kickBall(targetX - player.x, targetY - player.y, SHOT_SPEED, "Shot!");
         if (player.side === "away") shotByCpu = true;
       }
