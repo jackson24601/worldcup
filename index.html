@@ -73,6 +73,7 @@
       .screen[hidden] { display: none !important; }
       .kickoff-btn[hidden],
       .semifinals-btn[hidden],
+      #finals-btn[hidden],
       #continue-btn[hidden] {
         display: none !important;
       }
@@ -280,7 +281,8 @@
         text-shadow: 0 3px 12px rgba(0, 0, 0, 0.55);
       }
       .kickoff-btn,
-      .semifinals-btn {
+      .semifinals-btn,
+      .finals-btn {
         display: inline-block;
         margin-top: 0.5rem;
         padding: 0.9rem 2.4rem;
@@ -294,7 +296,8 @@
         animation: pop-in 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;
       }
       .kickoff-btn:hover,
-      .semifinals-btn:hover { background: #ffd95a; }
+      .semifinals-btn:hover,
+      .finals-btn:hover { background: #ffd95a; }
       .game {
         display: flex;
         flex-direction: column;
@@ -604,6 +607,7 @@
         .matchup,
         .kickoff-btn,
         .semifinals-btn,
+        .finals-btn,
         .firework,
         .goal-banner__text,
         .goal-banner__team {
@@ -684,6 +688,7 @@
           <h2 id="overlay-title" class="overlay__title"></h2>
           <p id="overlay-text" class="overlay__text"></p>
           <button type="button" id="semifinals-btn" class="semifinals-btn" hidden>Semifinals!!!!</button>
+          <button type="button" id="finals-btn" class="finals-btn" hidden>Finals!!!!</button>
           <button type="button" id="continue-btn" class="kickoff-btn" hidden>Continue</button>
         </div>
       </div>
@@ -714,6 +719,11 @@
       const AI_SUPPORT_SPEED_QF = 0.00125;
       const AI_SPEED_SF = 0.0018375; // 25% slower than prior SF pace
       const AI_SUPPORT_SPEED_SF = 0.0015375;
+      const AI_SPEED_F = 0.0026;
+      const AI_SUPPORT_SPEED_F = 0.0022;
+      const AI_GK_SPEED_MULT_QF = 0.75;
+      const AI_GK_SPEED_MULT_SF = 0.9;
+      const AI_GK_SPEED_MULT_F = 1.55; // finals keeper is fast and hard to beat
       const BALL_FRICTION = 0.978;
       const POSSESSION_RADIUS = 0.035;
       const TACKLE_RADIUS = 0.055;
@@ -773,16 +783,19 @@
       const overlayTitle = document.getElementById("overlay-title");
       const overlayText = document.getElementById("overlay-text");
       const semifinalsBtn = document.getElementById("semifinals-btn");
+      const finalsBtn = document.getElementById("finals-btn");
       const continueBtn = document.getElementById("continue-btn");
       const fireworks = document.getElementById("fireworks");
 
       let selectedTeam = null;
       let opponentTeam = null;
       let quarterfinalOpponent = null;
+      let semifinalOpponent = null;
       let tournamentRound = "quarterfinals";
       let playerSpeed = PLAYER_SPEED_QF;
       let aiSpeed = AI_SPEED_QF;
       let aiSupportSpeed = AI_SUPPORT_SPEED_QF;
+      let awayGkSpeedMult = AI_GK_SPEED_MULT_QF;
       let playerGoals = 0;
       let opponentGoals = 0;
       let half = 1;
@@ -884,6 +897,7 @@
         selectedTeam = null;
         opponentTeam = null;
         quarterfinalOpponent = null;
+        semifinalOpponent = null;
         tournamentRound = "quarterfinals";
         applyAiDifficulty();
         overlay.hidden = true;
@@ -898,14 +912,21 @@
       }
 
       function applyAiDifficulty() {
-        if (tournamentRound === "semifinals") {
+        if (tournamentRound === "finals") {
+          playerSpeed = PLAYER_SPEED_SF;
+          aiSpeed = AI_SPEED_F;
+          aiSupportSpeed = AI_SUPPORT_SPEED_F;
+          awayGkSpeedMult = AI_GK_SPEED_MULT_F;
+        } else if (tournamentRound === "semifinals") {
           playerSpeed = PLAYER_SPEED_SF;
           aiSpeed = AI_SPEED_SF;
           aiSupportSpeed = AI_SUPPORT_SPEED_SF;
+          awayGkSpeedMult = AI_GK_SPEED_MULT_SF;
         } else {
           playerSpeed = PLAYER_SPEED_QF;
           aiSpeed = AI_SPEED_QF;
           aiSupportSpeed = AI_SUPPORT_SPEED_QF;
+          awayGkSpeedMult = AI_GK_SPEED_MULT_QF;
         }
       }
 
@@ -936,6 +957,17 @@
         return remainingFour[Math.floor(Math.random() * remainingFour.length)];
       }
 
+      function pickFinalsOpponent(playerTeam, qfOpponent, sfOpponent) {
+        var pool = TEAMS.filter(function (team) {
+          return (
+            team.id !== playerTeam.id &&
+            (!qfOpponent || team.id !== qfOpponent.id) &&
+            (!sfOpponent || team.id !== sfOpponent.id)
+          );
+        });
+        return pool[Math.floor(Math.random() * pool.length)];
+      }
+
       function showMatchupScreen(title) {
         matchupTitle.textContent = title;
         playerFlag.src = flagUrl(selectedTeam.flagCode);
@@ -955,6 +987,7 @@
         selectedTeam = playerTeam;
         opponentTeam = pickOpponent(playerTeam);
         quarterfinalOpponent = opponentTeam;
+        semifinalOpponent = null;
         showMatchupScreen("Quarterfinals!!!!!");
       }
 
@@ -965,7 +998,18 @@
         tournamentRound = "semifinals";
         applyAiDifficulty();
         opponentTeam = pickSemifinalOpponent(selectedTeam, quarterfinalOpponent);
+        semifinalOpponent = opponentTeam;
         showMatchupScreen("Semifinals!!!!!");
+      }
+
+      function showFinals() {
+        if (!selectedTeam) return;
+        stopLoop();
+        hideOverlay();
+        tournamentRound = "finals";
+        applyAiDifficulty();
+        opponentTeam = pickFinalsOpponent(selectedTeam, quarterfinalOpponent, semifinalOpponent);
+        showMatchupScreen("Finals!!!!!");
       }
 
       function homeFormation() {
@@ -1238,6 +1282,11 @@
         var holder = getActor(possession);
         if (!holder || holder.side === slider.side) return false;
         var radius = holder.role === "gk" ? GK_CHALLENGE_RADIUS : SLIDE_HIT_RADIUS;
+        // Finals keeper is hard to dispossess — need a cleaner, closer slide
+        if (holder.role === "gk" && holder.side === "away" && tournamentRound === "finals") {
+          if (performance.now() - possessionSince < 520) return false;
+          radius = GK_CHALLENGE_RADIUS * 0.62;
+        }
         if (dist(slider, holder) > radius) return false;
         beatenId = holder.id;
         beatenAt = performance.now();
@@ -1351,7 +1400,7 @@
         var hits = actors
           .filter(function (p) {
             if (isBallImmune(p)) return false;
-            return dist(p, ball) <= TACKLE_RADIUS;
+            return dist(p, ball) <= ballCatchRadius(p);
           })
           .sort(function (a, b) {
             return dist(a, ball) - dist(b, ball);
@@ -1372,6 +1421,14 @@
         return true;
       }
 
+      function ballCatchRadius(player) {
+        // Finals away keeper snags more shots near the line
+        if (player.role === "gk" && player.side === "away" && tournamentRound === "finals") {
+          return TACKLE_RADIUS * 1.5;
+        }
+        return TACKLE_RADIUS;
+      }
+
       function ballPathHitsPlayer(fromX, fromY, toX, toY, player) {
         if (isBallImmune(player)) return false;
         var abx = toX - fromX;
@@ -1385,7 +1442,7 @@
         var closestY = fromY + aby * t;
         var dx = player.x - closestX;
         var dy = player.y - closestY;
-        return Math.sqrt(dx * dx + dy * dy) <= TACKLE_RADIUS;
+        return Math.sqrt(dx * dx + dy * dy) <= ballCatchRadius(player);
       }
 
       function movePlayer(p, dx, dy, speed) {
@@ -1398,7 +1455,12 @@
         if (p.role === "gk") {
           if (p.side === "home") p.x = clamp(p.x, 0.04, 0.14);
           else p.x = clamp(p.x, 0.86, 0.96);
-          p.y = clamp(p.y, 0.28, 0.72);
+          // Finals keeper covers more of the mouth
+          if (p.side === "away" && tournamentRound === "finals") {
+            p.y = clamp(p.y, 0.24, 0.76);
+          } else {
+            p.y = clamp(p.y, 0.28, 0.72);
+          }
         }
         p.moving = true;
       }
@@ -1570,7 +1632,8 @@
         var distGoal = Math.abs(toGoalX);
 
         // Shoot when near the box
-        var shootChance = tournamentRound === "semifinals" ? 0.075 : 0.05;
+        var shootChance =
+          tournamentRound === "finals" ? 0.09 : tournamentRound === "semifinals" ? 0.075 : 0.05;
         if (distGoal < 0.3 && Math.abs(p.y - 0.5) < 0.24) {
           if (Math.random() < shootChance * dtScale) {
             passOrShoot(p, false);
@@ -1579,7 +1642,8 @@
         }
 
         // Pass ahead often to keep the attack moving
-        var passChance = tournamentRound === "semifinals" ? 0.028 : 0.018;
+        var passChance =
+          tournamentRound === "finals" ? 0.035 : tournamentRound === "semifinals" ? 0.028 : 0.018;
         if (Math.random() < passChance * dtScale) {
           if (aiPassToTeammate(p, true)) return;
         }
@@ -1603,8 +1667,21 @@
           }
 
           if (p.role === "gk") {
-            var gy = clamp(ball.y, 0.3, 0.7);
-            movePlayer(p, 0, gy - p.y, aiSpeed * 0.75 * dtScale);
+            var gkSpeed = aiSpeed * awayGkSpeedMult;
+            // Finals keeper dives at shots and closes down attackers in the box
+            if (
+              tournamentRound === "finals" &&
+              ((!possession && Math.abs(ball.vx) + Math.abs(ball.vy) > 0.002) ||
+                (homeHasBall && ball.x > 0.62))
+            ) {
+              movePlayer(p, ball.x - p.x, ball.y - p.y, gkSpeed * 1.1 * dtScale);
+              return;
+            }
+            var gy =
+              tournamentRound === "finals"
+                ? clamp(ball.y, 0.26, 0.74)
+                : clamp(ball.y, 0.3, 0.7);
+            movePlayer(p, 0, gy - p.y, gkSpeed * dtScale);
             return;
           }
 
@@ -1840,7 +1917,7 @@
           gameActive = false;
           halfMsLeft = 0;
           updateHud();
-          showOverlay("Half Time", "Get ready for the second half!", false, true);
+          showOverlay("Half Time", "Get ready for the second half!", false, true, false);
         } else {
           endMatch();
         }
@@ -1873,28 +1950,38 @@
         var drawn = playerGoals === opponentGoals;
         if (won) {
           if (tournamentRound === "quarterfinals") {
-            showOverlay("You Win!!!!!", selectedTeam.name + " advance!", true, false);
+            showOverlay("You Win!!!!!", selectedTeam.name + " advance!", true, false, false);
+          } else if (tournamentRound === "semifinals") {
+            showOverlay("You Win!!!!!", selectedTeam.name + " advance!", false, false, true);
           } else {
             showOverlay(
-              "You Win!!!!!",
-              selectedTeam.name + " advance to the Finals! Finals coming soon!!!!",
+              "Champions!!!!!",
+              selectedTeam.name + " win the World Cup!!!!",
+              false,
               false,
               false
             );
           }
           launchFireworks();
         } else if (drawn) {
-          showOverlay("Draw", "So close! Refresh to try again.", false, false);
+          showOverlay("Draw", "So close! Refresh to try again.", false, false, false);
         } else {
-          showOverlay("Defeat", opponentTeam.name + " go through. Refresh to try again.", false, false);
+          showOverlay(
+            "Defeat",
+            opponentTeam.name + " go through. Refresh to try again.",
+            false,
+            false,
+            false
+          );
         }
       }
 
-      function showOverlay(title, text, showSemi, showContinue) {
+      function showOverlay(title, text, showSemi, showContinue, showFinals) {
         overlay.hidden = false;
         overlayTitle.textContent = title;
         overlayText.textContent = text;
         semifinalsBtn.hidden = !showSemi;
+        finalsBtn.hidden = !showFinals;
         continueBtn.hidden = !showContinue;
         fireworks.innerHTML = "";
       }
@@ -1902,6 +1989,7 @@
       function hideOverlay() {
         overlay.hidden = true;
         semifinalsBtn.hidden = true;
+        finalsBtn.hidden = true;
         continueBtn.hidden = true;
         fireworks.innerHTML = "";
       }
@@ -2059,6 +2147,7 @@
       kickoffBtn.addEventListener("click", startMatch);
       continueBtn.addEventListener("click", startSecondHalf);
       semifinalsBtn.addEventListener("click", showSemifinals);
+      finalsBtn.addEventListener("click", showFinals);
 
       // Test helpers
       window.__worldcup = {
@@ -2074,6 +2163,7 @@
           endMatch();
         },
         showSemifinals: showSemifinals,
+        showFinals: showFinals,
         getState: function () {
           return {
             half: half,
@@ -2087,13 +2177,16 @@
             selected: selectedTeam && selectedTeam.name,
             opponent: opponentTeam && opponentTeam.name,
             quarterfinalOpponent: quarterfinalOpponent && quarterfinalOpponent.name,
+            semifinalOpponent: semifinalOpponent && semifinalOpponent.name,
             tournamentRound: tournamentRound,
             playerSpeed: playerSpeed,
             aiSpeed: aiSpeed,
             aiSupportSpeed: aiSupportSpeed,
+            awayGkSpeedMult: awayGkSpeedMult,
             slidingId: slidingId,
             overlayHidden: overlay.hidden,
             semifinalsVisible: !semifinalsBtn.hidden,
+            finalsVisible: !finalsBtn.hidden,
             goalBannerHidden: goalBanner.hidden,
             awaitingRestart: awaitingRestart,
             ball: { x: ball.x, y: ball.y, vx: ball.vx, vy: ball.vy },
