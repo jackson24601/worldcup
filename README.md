@@ -15,6 +15,7 @@ If the page looks blank, hard-refresh (Ctrl+Shift+R / Cmd+Shift+R) — an older 
 3. **Quarterfinals** — random opponent matchup with flags, then **Kickoff!!!!**
 4. **Game** — 4v4 match (3 field players + goalie). Arrow keys move; hold an arrow and press Space to pass that way; Space alone shoots. On defense, hold a direction and press **Shift** to slide tackle — that’s the only way to take the ball; otherwise players bump and possession stays put.
 5. **Semifinals** — after a quarterfinal win, press **Semifinals!!!!** to face a new opponent from the four remaining teams (never the team you just beat). Same match rules, but the AI is faster and more aggressive.
+6. **Finals** — after a semifinal win, press **Finals!!!!** for the championship. Hardest AI in the tournament, with a fast goalie who is tough to beat.
 
 ### Match rules
 
@@ -26,3 +27,5 @@ If the page looks blank, hard-refresh (Ctrl+Shift+R / Cmd+Shift+R) — an older 
 - On defense, press **Shift** with a direction to slide tackle and win the ball; standing contact only bumps players and leaves possession unchanged
 - Win the quarterfinals to see fireworks and advance to the semifinals
 - Semifinal AI is still faster than the quarters, but 25% slower than before — tougher than QF, more manageable now
+- Win the semifinals to reach the Finals — the toughest side, with a keeper who closes down shots and is hard to dispossess
+- Win the Finals to become World Cup champions
